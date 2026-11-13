@@ -15,7 +15,9 @@ export const sideLabel: Record<Side, string> = {
 };
 
 export function tierLabel(stadium: Stadium, tier: TierId): string {
-  const name = stadium.data.shell?.tiers.find((t) => t.id === tier)?.name ?? ['Lower', 'Middle', 'Upper'][tier - 1];
+  const name =
+    stadium.data.shell?.stands.flatMap((s) => s?.tiers ?? []).find((t) => t.id === tier)?.name ??
+    ['Lower', 'Middle', 'Upper'][tier - 1];
   return `${name} tier`;
 }
 

@@ -27,6 +27,46 @@ export interface TierConfig {
   parapet: number;
 }
 
+export interface RoofConfig {
+  enabled: boolean;
+  /** Height of the roof underside above the last row's tread, at the back wall. */
+  clearance: number;
+  /** How far the roof reaches in over the seats from the back wall. */
+  cantilever: number;
+  /** Upward slope towards the pitch, degrees. */
+  slopeDeg: number;
+  thickness: number;
+}
+
+/** Geometry fields of a tier that a single stand may change. */
+export type TierGeometry = Pick<TierConfig, 'rows' | 'rowDepth' | 'rakeDeg' | 'cValue' | 'setback' | 'lift' | 'parapet'>;
+
+/** One tier as it exists in one stand: the global tier with this id, with any fields replaced. */
+export interface StandTier extends Partial<TierGeometry> {
+  id: TierId;
+  /** Sections across this tier in this stand. Overrides the stand's and the zone's count. */
+  sections?: number;
+}
+
+/**
+ * Per-stand overrides. A stand is one piece of the bowl: a sideline (N, S), an end (E, W)
+ * or a corner (NE, NW, SE, SW). Anything left out falls back to the stadium-wide value.
+ */
+export interface StandConfig {
+  /** Tiers present in this stand, front to back. Omit for all of the stadium's tiers. */
+  tiers?: StandTier[];
+  /** Sections per tier in this stand. */
+  sections?: number;
+  /** null = this stand has no roof. */
+  roof?: RoofConfig | null;
+  shellDepth?: number;
+  /**
+   * Gap from the touchline (N, S) or goal line (E, W) to the front of this stand. Ignored on
+   * corners, which follow the stands either side.
+   */
+  runoff?: number;
+}
+
 export interface StadiumConfig {
   name: string;
   pitch: { length: number; width: number; runoffSide: number; runoffEnd: number };
@@ -41,21 +81,18 @@ export interface StadiumConfig {
     seatInset: number;
     sectionsPerZone: Record<Zone, number>;
   };
+  /** Stadium-wide tiers: ids, names, section numbering and the default geometry. */
   tiers: TierConfig[];
-  roof: {
-    enabled: boolean;
-    /** Height of the roof underside above the last row's tread, at the back wall. */
-    clearance: number;
-    /** How far the roof reaches in over the seats from the back wall. */
-    cantilever: number;
-    /** Upward slope towards the pitch, degrees. */
-    slopeDeg: number;
-    thickness: number;
-  };
+  roof: RoofConfig;
   /** Depth of the concourse/facade ring behind the top tier. */
   shellDepth: number;
   /** Eye height above the seat anchor (row tread level). */
   eyeHeight: number;
+  /**
+   * Per-stand overrides. A missing stand uses the stadium-wide values; `null` leaves that
+   * piece of the bowl empty (an open corner, or no stand behind a goal).
+   */
+  stands?: Partial<Record<Side, StandConfig | null>>;
 }
 
 /* ---------- stadium.json: everything the renderer consumes ---------- */
@@ -79,11 +116,17 @@ export interface Section {
   rows: Row[];
 }
 
-/** Rounded-rectangle footprint of the front-row line: straight half-lengths plus corner radius. */
+/**
+ * Rounded-rectangle footprint of the front-row line: straight half-lengths plus corner radius,
+ * centred on (cx, cz). The centre moves off the centre spot when opposite stands sit at
+ * different distances from the pitch.
+ */
 export interface BowlShape {
   sx: number;
   sz: number;
   r0: number;
+  cx?: number;
+  cz?: number;
 }
 
 /** Resolved tier envelope. d = horizontal offset outward from the front-row line, y = height. */
@@ -110,11 +153,29 @@ export interface RoofSpec {
   thickness: number;
 }
 
+/** Cross-section of one stand's building: tiers, back of the facade and roof. */
+export interface StandShell {
+  side: Side;
+  tiers: TierLayout[];
+  outerD: number;
+  roof: RoofSpec | null;
+}
+
 /**
  * Optional generic envelope (walls, walkways, facade, roof). A real venue can omit it and
  * supply its own model instead; seats and steps render from `sections` alone.
  */
 export interface ShellSpec {
+  shape: BowlShape;
+  /**
+   * One entry per piece of the bowl, in path order: S, SE, E, NE, N, NW, W, SW (see
+   * bowlPieces). null = no stand there.
+   */
+  stands: Array<StandShell | null>;
+}
+
+/** stadium.json version 1 shell: one cross-section all the way round. Upgraded on load. */
+export interface LegacyShellSpec {
   shape: BowlShape;
   tiers: TierLayout[];
   outerD: number;
@@ -122,7 +183,7 @@ export interface ShellSpec {
 }
 
 export interface StadiumData {
-  version: 1;
+  version: 2;
   name: string;
   pitch: { length: number; width: number };
   /** Rendering hints for building steps from seat rows. */

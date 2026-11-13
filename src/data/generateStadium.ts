@@ -1,6 +1,7 @@
-import { bowlPieces, pieceLength, pointOnPiece } from './bowlPath.ts';
+import { bowlPieces, pieceLength, pointOnPiece, type Piece } from './bowlPath.ts';
 import type {
   BowlShape,
+  RoofConfig,
   RoofSpec,
   Row,
   SeatTuple,
@@ -8,6 +9,9 @@ import type {
   ShellSpec,
   StadiumConfig,
   StadiumData,
+  StandShell,
+  StandTier,
+  TierConfig,
   TierLayout,
 } from './types';
 
@@ -16,11 +20,35 @@ const round = (v: number, places: number) => {
   return Math.round(v * f) / f;
 };
 
+/** Front-row gap for each straight stand: its own override, else the pitch-wide run-off. */
+function runoffs(cfg: StadiumConfig): { S: number; N: number; E: number; W: number } {
+  const st = cfg.stands ?? {};
+  return {
+    S: st.S?.runoff ?? cfg.pitch.runoffSide,
+    N: st.N?.runoff ?? cfg.pitch.runoffSide,
+    E: st.E?.runoff ?? cfg.pitch.runoffEnd,
+    W: st.W?.runoff ?? cfg.pitch.runoffEnd,
+  };
+}
+
 export function bowlShape(cfg: StadiumConfig): BowlShape {
-  const hx = cfg.pitch.length / 2 + cfg.pitch.runoffEnd;
-  const hz = cfg.pitch.width / 2 + cfg.pitch.runoffSide;
+  const r = runoffs(cfg);
+  const halfL = cfg.pitch.length / 2;
+  const halfW = cfg.pitch.width / 2;
+  const xE = halfL + r.E;
+  const xW = -(halfL + r.W);
+  const zS = halfW + r.S;
+  const zN = -(halfW + r.N);
+  const hx = (xE - xW) / 2;
+  const hz = (zS - zN) / 2;
   const r0 = Math.min(cfg.bowl.cornerRadius, hx, hz);
-  return { sx: hx - r0, sz: hz - r0, r0 };
+  const shape: BowlShape = { sx: hx - r0, sz: hz - r0, r0 };
+  // Only written when the bowl is off-centre, so symmetric stadiums keep their old JSON.
+  const cx = round((xE + xW) / 2, 3);
+  const cz = round((zS + zN) / 2, 3);
+  if (cx !== 0) shape.cx = cx;
+  if (cz !== 0) shape.cz = cz;
+  return shape;
 }
 
 /**
@@ -29,29 +57,34 @@ export function bowlShape(cfg: StadiumConfig): BowlShape {
  * bring the front row much closer there.
  */
 export function nearestPitchGap(cfg: StadiumConfig): number {
-  const { runoffSide, runoffEnd } = cfg.pitch;
+  const r = runoffs(cfg);
   const r0 = bowlShape(cfg).r0;
-  const flagToArcCentre = Math.hypot(Math.max(0, r0 - runoffEnd), Math.max(0, r0 - runoffSide));
-  return Math.min(runoffSide, runoffEnd, r0 - flagToArcCentre);
+  let gap = Math.min(r.S, r.N, r.E, r.W);
+  for (const [end, side] of [[r.E, r.S], [r.E, r.N], [r.W, r.N], [r.W, r.S]]) {
+    const flagToArcCentre = Math.hypot(Math.max(0, r0 - end), Math.max(0, r0 - side));
+    gap = Math.min(gap, r0 - flagToArcCentre);
+  }
+  return gap;
 }
 
 /** Steepest rake allowed by common stadium safety guidance. */
 const MAX_RAKE_DEG = 35;
 
 /**
- * Tier envelopes and the floor height of every row.
+ * Tier envelopes and the floor height of every row, for one stand's stack of tiers.
  *
  * With `cValue` set, each riser is sized so the sightline from that row to the nearest
  * touchline passes at least C above the eyes of the row in front (the standard sightline
  * design method). That makes rakes slightly parabolic: steeper further back. `rakeDeg`
- * is the minimum and MAX_RAKE_DEG the cap.
+ * is the minimum and MAX_RAKE_DEG the cap. The focal distance is the stadium-wide nearest
+ * gap, so stands that share tier settings also share a cross-section and meet cleanly.
  */
-export function tierLayouts(cfg: StadiumConfig): Array<TierLayout & { rowY: number[] }> {
+export function tierLayouts(cfg: StadiumConfig, tiers: TierConfig[] = cfg.tiers): Array<TierLayout & { rowY: number[] }> {
   const out: Array<TierLayout & { rowY: number[] }> = [];
   const focal = nearestPitchGap(cfg);
   let prevBackD = 0;
   let prevTopY = 0;
-  for (const t of cfg.tiers) {
+  for (const t of tiers) {
     const minRise = t.rowDepth * Math.tan((t.rakeDeg * Math.PI) / 180);
     const maxRise = t.rowDepth * Math.tan((MAX_RAKE_DEG * Math.PI) / 180);
     const c = (t.cValue ?? 0) / 1000;
@@ -79,39 +112,87 @@ export function tierLayouts(cfg: StadiumConfig): Array<TierLayout & { rowY: numb
   return out;
 }
 
-function roofSpec(cfg: StadiumConfig, top: TierLayout): RoofSpec | null {
-  if (!cfg.roof.enabled) return null;
-  const slope = Math.tan((cfg.roof.slopeDeg * Math.PI) / 180);
-  const baseY = top.topY + cfg.roof.clearance;
-  const outerD = top.backD + cfg.shellDepth;
-  const innerD = Math.max(1, top.backD - cfg.roof.cantilever);
+function roofSpec(roof: RoofConfig, shellDepth: number, top: TierLayout): RoofSpec | null {
+  if (!roof.enabled) return null;
+  const slope = Math.tan((roof.slopeDeg * Math.PI) / 180);
+  const baseY = top.topY + roof.clearance;
+  const outerD = top.backD + shellDepth;
+  const innerD = Math.max(1, top.backD - roof.cantilever);
   return {
     outerD,
     innerD,
-    outerY: baseY - cfg.shellDepth * slope,
+    outerY: baseY - shellDepth * slope,
     innerY: baseY + (top.backD - innerD) * slope,
-    thickness: cfg.roof.thickness,
+    thickness: roof.thickness,
   };
+}
+
+/** A stand with every override applied: what the generator actually builds for one piece. */
+export interface ResolvedStand {
+  tiers: TierConfig[];
+  /** Sections across each tier, parallel to `tiers`. */
+  sections: number[];
+  roof: RoofConfig;
+  shellDepth: number;
+}
+
+function withoutUndefined<T extends object>(o: T): Partial<T> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
+/** Applies `cfg.stands` to each piece of the bowl. null = no stand on that piece. */
+export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(bowlShape(cfg))): Array<ResolvedStand | null> {
+  return pieces.map((piece) => {
+    const o = cfg.stands?.[piece.side];
+    if (o === null) return null;
+    const list: StandTier[] = o?.tiers ?? cfg.tiers.map((t) => ({ id: t.id }));
+    if (list.length === 0) return null;
+    const tiers = list.map(({ sections: _ignored, ...geometry }) => {
+      const base = cfg.tiers.find((t) => t.id === geometry.id);
+      if (!base) throw new Error(`stadiumConfig: stand ${piece.side} uses tier ${geometry.id}, which is not in "tiers"`);
+      return { ...base, ...withoutUndefined(geometry) };
+    });
+    return {
+      tiers,
+      sections: list.map((t) => t.sections ?? o?.sections ?? cfg.bowl.sectionsPerZone[piece.zone]),
+      roof: o?.roof === undefined ? cfg.roof : (o.roof ?? { ...cfg.roof, enabled: false }),
+      shellDepth: o?.shellDepth ?? cfg.shellDepth,
+    };
+  });
 }
 
 /** Pure function: same config in, same seats (and seat IDs) out. */
 export function generateStadium(cfg: StadiumConfig): StadiumData {
   const shape = bowlShape(cfg);
   const pieces = bowlPieces(shape);
-  const layouts = tierLayouts(cfg);
-  const { seatSpacing, aisleWidth, seatInset, sectionsPerZone } = cfg.bowl;
+  const stands = resolveStands(cfg, pieces);
+  const { seatSpacing, aisleWidth, seatInset } = cfg.bowl;
+
+  // Stands with the same tier settings share one cross-section (and so meet without a step).
+  const cache = new Map<string, Array<TierLayout & { rowY: number[] }>>();
+  const layouts = stands.map((st) => {
+    if (!st) return null;
+    const key = JSON.stringify(st.tiers);
+    if (!cache.has(key)) cache.set(key, tierLayouts(cfg, st.tiers));
+    return cache.get(key)!;
+  });
+
+  // Tier by tier, then round the bowl: section numbers run on within a tier and skip
+  // pieces that do not have that tier.
   const sections: Section[] = [];
-
-  cfg.tiers.forEach((tier, ti) => {
-    const layout = layouts[ti];
+  for (const tier of cfg.tiers) {
     let sectionNumber = tier.firstSection;
-
-    for (const piece of pieces) {
-      const count = sectionsPerZone[piece.zone];
+    pieces.forEach((piece, pi) => {
+      const st = stands[pi];
+      const ti = st ? st.tiers.findIndex((t) => t.id === tier.id) : -1;
+      if (!st || ti < 0) return;
+      const t = st.tiers[ti];
+      const layout = layouts[pi]![ti];
+      const count = st.sections[ti];
       for (let s = 0; s < count; s++) {
         const rows: Row[] = [];
-        for (let k = 0; k < tier.rows; k++) {
-          const d = layout.frontD + k * tier.rowDepth + seatInset;
+        for (let k = 0; k < t.rows; k++) {
+          const d = layout.frontD + k * t.rowDepth + seatInset;
           const y = layout.rowY[k];
           const total = pieceLength(piece, shape, d);
           const slice = total / count;
@@ -131,31 +212,39 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
           tier: tier.id,
           zone: piece.zone,
           side: piece.side,
-          rowDepth: tier.rowDepth,
+          rowDepth: t.rowDepth,
           rows,
         });
       }
-    }
-  });
+    });
+  }
 
-  const top = layouts[layouts.length - 1];
   const shell: ShellSpec = {
     shape,
-    tiers: layouts.map((l) => ({
-      ...l,
-      frontD: round(l.frontD, 3),
-      frontY: round(l.frontY, 3),
-      backD: round(l.backD, 3),
-      topY: round(l.topY, 3),
-      rise: round(l.rise, 4),
-      rowY: l.rowY.map((y) => round(y, 2)),
-    })),
-    outerD: round(top.backD + cfg.shellDepth, 3),
-    roof: roofSpec(cfg, top),
+    stands: pieces.map((piece, pi): StandShell | null => {
+      const st = stands[pi];
+      const ls = layouts[pi];
+      if (!st || !ls) return null;
+      const top = ls[ls.length - 1];
+      return {
+        side: piece.side,
+        tiers: ls.map((l) => ({
+          ...l,
+          frontD: round(l.frontD, 3),
+          frontY: round(l.frontY, 3),
+          backD: round(l.backD, 3),
+          topY: round(l.topY, 3),
+          rise: round(l.rise, 4),
+          rowY: l.rowY.map((y) => round(y, 2)),
+        })),
+        outerD: round(top.backD + st.shellDepth, 3),
+        roof: roofSpec(st.roof, st.shellDepth, top),
+      };
+    }),
   };
 
   return {
-    version: 1,
+    version: 2,
     name: cfg.name,
     pitch: { length: cfg.pitch.length, width: cfg.pitch.width },
     seat: { spacing: seatSpacing, inset: seatInset, aisle: aisleWidth, eyeHeight: cfg.eyeHeight },

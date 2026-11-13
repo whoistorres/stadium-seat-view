@@ -1,5 +1,6 @@
+import { PIECE_SIDES } from './bowlPath';
 import { seatId } from './seatId';
-import type { SeatTuple, Section, StadiumData } from './types';
+import type { LegacyShellSpec, SeatTuple, Section, ShellSpec, StadiumData } from './types';
 
 /** Index-based reference to a seat: positions into sections[] / rows[] / seats[]. */
 export interface SeatRef {
@@ -141,9 +142,29 @@ function sectionMeta(section: Section): SectionMeta {
   return { rowStart, seatCount: count, centre, facing: [fx / fl, fz / fl], radius };
 }
 
+/**
+ * Version 1 files had one shell cross-section for the whole bowl; version 2 has one per
+ * piece of the bowl. Same seats either way, so upgrading just repeats the old cross-section.
+ */
+function upgrade(data: unknown): unknown {
+  const d = data as { version?: number; shell?: LegacyShellSpec | null } | null;
+  if (!d || d.version !== 1) return data;
+  const old = d.shell;
+  const shell: ShellSpec | null = old
+    ? {
+        shape: old.shape,
+        stands: PIECE_SIDES.map((side) => ({ side, tiers: old.tiers, outerD: old.outerD, roof: old.roof })),
+      }
+    : null;
+  return { ...d, version: 2, shell };
+}
+
 function validate(data: unknown): asserts data is StadiumData {
   const d = data as Partial<StadiumData> | null;
-  if (!d || d.version !== 1) throw new Error('stadium.json: unsupported or missing "version" (expected 1)');
+  if (!d || d.version !== 2) throw new Error('stadium.json: unsupported or missing "version" (expected 1 or 2)');
+  if (d.shell && (!Array.isArray(d.shell.stands) || d.shell.stands.length !== PIECE_SIDES.length)) {
+    throw new Error(`stadium.json: "shell.stands" needs ${PIECE_SIDES.length} entries (${PIECE_SIDES.join(', ')}), null for no stand`);
+  }
   if (!d.pitch || !d.seat || !Array.isArray(d.sections) || d.sections.length === 0) {
     throw new Error('stadium.json: "pitch", "seat" and a non-empty "sections" array are required');
   }
@@ -165,7 +186,7 @@ async function fetchJson(path: string): Promise<unknown> {
 }
 
 export async function loadStadium(): Promise<Stadium> {
-  const data = await fetchJson('data/stadium.json');
+  const data = upgrade(await fetchJson('data/stadium.json'));
   validate(data);
   return new Stadium(data);
 }

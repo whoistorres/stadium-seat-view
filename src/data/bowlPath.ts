@@ -1,4 +1,4 @@
-import type { BowlShape, Side, Zone } from './types';
+import type { BowlShape, Side, Zone } from './types.ts';
 
 /**
  * The bowl footprint is a rounded rectangle. Offsetting it outward by d keeps the straights
@@ -40,20 +40,45 @@ export interface PathPoint {
   nz: number;
 }
 
-export function bowlPieces({ sx, sz, r0 }: BowlShape): Piece[] {
+/** Sides of the eight pieces, in path order. Index i here is index i of bowlPieces() and ShellSpec.stands. */
+export const PIECE_SIDES: readonly Side[] = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+
+export function bowlPieces({ sx, sz, r0, cx = 0, cz = 0 }: BowlShape): Piece[] {
   const hx = sx + r0;
   const hz = sz + r0;
   const H = Math.PI / 2;
   return [
-    { kind: 'line', zone: 'sideline', side: 'S', x0: -sx, z0: hz, x1: sx, z1: hz, nx: 0, nz: 1 },
-    { kind: 'arc', zone: 'corner', side: 'SE', cx: sx, cz: sz, a0: H, a1: 0 },
-    { kind: 'line', zone: 'end', side: 'E', x0: hx, z0: sz, x1: hx, z1: -sz, nx: 1, nz: 0 },
-    { kind: 'arc', zone: 'corner', side: 'NE', cx: sx, cz: -sz, a0: 0, a1: -H },
-    { kind: 'line', zone: 'sideline', side: 'N', x0: sx, z0: -hz, x1: -sx, z1: -hz, nx: 0, nz: -1 },
-    { kind: 'arc', zone: 'corner', side: 'NW', cx: -sx, cz: -sz, a0: -H, a1: -2 * H },
-    { kind: 'line', zone: 'end', side: 'W', x0: -hx, z0: -sz, x1: -hx, z1: sz, nx: -1, nz: 0 },
-    { kind: 'arc', zone: 'corner', side: 'SW', cx: -sx, cz: sz, a0: -2 * H, a1: -3 * H },
+    { kind: 'line', zone: 'sideline', side: 'S', x0: cx - sx, z0: cz + hz, x1: cx + sx, z1: cz + hz, nx: 0, nz: 1 },
+    { kind: 'arc', zone: 'corner', side: 'SE', cx: cx + sx, cz: cz + sz, a0: H, a1: 0 },
+    { kind: 'line', zone: 'end', side: 'E', x0: cx + hx, z0: cz + sz, x1: cx + hx, z1: cz - sz, nx: 1, nz: 0 },
+    { kind: 'arc', zone: 'corner', side: 'NE', cx: cx + sx, cz: cz - sz, a0: 0, a1: -H },
+    { kind: 'line', zone: 'sideline', side: 'N', x0: cx + sx, z0: cz - hz, x1: cx - sx, z1: cz - hz, nx: 0, nz: -1 },
+    { kind: 'arc', zone: 'corner', side: 'NW', cx: cx - sx, cz: cz - sz, a0: -H, a1: -2 * H },
+    { kind: 'line', zone: 'end', side: 'W', x0: cx - hx, z0: cz - sz, x1: cx - hx, z1: cz + sz, nx: -1, nz: 0 },
+    { kind: 'arc', zone: 'corner', side: 'SW', cx: cx - sx, cz: cz + sz, a0: -2 * H, a1: -3 * H },
   ];
+}
+
+/**
+ * Indices of the pieces whose sector contains (x, z), widened by `margin` metres so points
+ * near a boundary count for both neighbours. The sectors are split by the lines through the
+ * corner-arc centres, which is exactly where neighbouring pieces meet at every offset.
+ */
+export function piecesNear(shape: BowlShape, x: number, z: number, margin = 0): number[] {
+  const px = x - (shape.cx ?? 0);
+  const pz = z - (shape.cz ?? 0);
+  const { sx, sz } = shape;
+  const m = margin;
+  const out: number[] = [];
+  if (pz >= 0 && Math.abs(px) <= sx + m) out.push(0);
+  if (px >= sx - m && pz >= sz - m) out.push(1);
+  if (px >= 0 && Math.abs(pz) <= sz + m) out.push(2);
+  if (px >= sx - m && pz <= -sz + m) out.push(3);
+  if (pz <= 0 && Math.abs(px) <= sx + m) out.push(4);
+  if (px <= -sx + m && pz <= -sz + m) out.push(5);
+  if (px <= 0 && Math.abs(pz) <= sz + m) out.push(6);
+  if (px <= -sx + m && pz >= sz - m) out.push(7);
+  return out;
 }
 
 export function pieceLength(piece: Piece, shape: BowlShape, d: number): number {
@@ -93,8 +118,8 @@ export function ringPoints(shape: BowlShape, d: number, arcSegments = 16): PathP
 
 /** Signed distance from (x, z) to the front-row line: negative over the pitch, positive in the stands. */
 export function offsetAt(shape: BowlShape, x: number, z: number): number {
-  const qx = Math.abs(x) - shape.sx;
-  const qz = Math.abs(z) - shape.sz;
+  const qx = Math.abs(x - (shape.cx ?? 0)) - shape.sx;
+  const qz = Math.abs(z - (shape.cz ?? 0)) - shape.sz;
   const outside = Math.hypot(Math.max(qx, 0), Math.max(qz, 0));
   const inside = Math.min(Math.max(qx, qz), 0);
   return outside + inside - shape.r0;

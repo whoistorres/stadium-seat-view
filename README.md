@@ -60,7 +60,10 @@ Everything is also reachable without the 3D view: the Section / Row / Seat dropd
 ```
 plugins/stadiumDataPlugin.ts   Vite plugin: config -> public/data/*.json at startup
 src/
-  config/stadiumConfig.ts      All stadium dimensions (the only file to edit for a different bowl)
+  config/
+    stadiumConfig.ts           Default stadium: all dimensions (the only file to edit for a different bowl)
+    index.ts                   Named configs that STADIUM_CONFIG can pick from
+    examples/fourStands.ts     Example of per-stand overrides
   data/
     types.ts                   StadiumConfig, StadiumData, TicketData types
     generateStadium.ts         config -> StadiumData (pure, deterministic, no three.js)
@@ -94,8 +97,39 @@ src/
 | `roof` | `enabled`, `clearance` above the top row, `cantilever` reach, `slopeDeg`, `thickness` |
 | `shellDepth` | Concourse/facade depth behind the top tier |
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
+| `stands` | Optional per-stand overrides, see below |
 
-**Rake and sightlines.** Each row rises at least `rowDepth × tan(rakeDeg)`. With `cValue` set (default 90 mm), each riser is made tall enough that the sightline from that row to the nearest point of the pitch passes at least that far above the eyes of the person in front: the standard stadium sightline method, solved row by row. Rakes therefore steepen slightly towards the back: about 24°→31° lower, 31°→32° middle, 34°→35° upper, capped at 35°. The governing distance is the closest the front row gets to the pitch anywhere, which is at the corners.
+**Per-stand overrides.** The bowl has eight pieces: sidelines `N`, `S`, ends `E`, `W` and corners `NE`, `NW`, `SE`, `SW`. By default every piece gets every tier, the stadium-wide roof and `sectionsPerZone`. `stands` changes that piece by piece:
+
+```ts
+stands: {
+  S: { tiers: [{ id: 1 }, { id: 3, rows: 18 }] },          // lower + upper tier, no middle tier
+  N: { tiers: [{ id: 1, rows: 36, sections: 10 }],         // one big tier, 10 sections
+       roof: { ...roof, cantilever: 22 } },
+  E: { tiers: [{ id: 1, rows: 20 }, { id: 2 }], roof: null, runoff: 12 },  // no roof, further back
+  NE: null,                                                // open corner: no stand at all
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet` and `sections`. Omit for all tiers unchanged |
+| `sections` | Sections per tier in this stand (a tier's own `sections` wins) |
+| `roof` | This stand's roof, or `null` for none |
+| `shellDepth` | Concourse/facade depth behind this stand |
+| `runoff` | `N`, `S`, `E`, `W` only: gap from the touchline or goal line to this stand. Different values on opposite sides move the bowl off-centre |
+
+Section numbers still run on within each tier, going round the bowl from the south side and skipping stands that don't have that tier. Stands with the same tier settings share one cross-section and join seamlessly. Where neighbouring stands differ, or one is missing, each stand's end is closed off with an end wall, and the same goes for roofs.
+
+**Choosing a config.** [`src/config/index.ts`](src/config/index.ts) lists named configs. Start the dev server with `STADIUM_CONFIG=<name>` to build one of them, for example the example ground with four different stands:
+
+```bash
+STADIUM_CONFIG=four-stands npm run dev
+```
+
+In PowerShell: `$env:STADIUM_CONFIG='four-stands'; npm run dev`. This rewrites `public/data/*.json`, so restart without it to go back to the default stadium.
+
+**Rake and sightlines.** Each row rises at least `rowDepth × tan(rakeDeg)`. With `cValue` set (default 90 mm), each riser is made tall enough that the sightline from that row to the nearest point of the pitch passes at least that far above the eyes of the person in front: the standard stadium sightline method, solved row by row. Rakes therefore steepen slightly towards the back: about 24°→31° lower, 31°→32° middle, 34°→35° upper, capped at 35°. The governing distance is the closest the front row gets to the pitch anywhere, which is at the corners. All stands use this same distance, so stands with the same tier settings come out with the same cross-section.
 
 Rendering code never reads the config, only the generated JSON, so changing values and restarting the dev server is all it takes.
 
@@ -105,11 +139,14 @@ Rendering code never reads the config, only the generated JSON, so changing valu
 
 ```ts
 {
-  version: 1,
+  version: 2,
   name: string,
   pitch: { length, width },                       // metres
   seat: { spacing, inset, aisle, eyeHeight },     // used to build steps under the seats
-  shell: ShellSpec | null,                        // generic walls/roof; null = none
+  shell: {                                        // generic walls/roof; null = none
+    shape: { sx, sz, r0, cx?, cz? },              // rounded-rectangle front-row line
+    stands: [StandShell | null, ...]              // 8 entries: S, SE, E, NE, N, NW, W, SW; null = no stand
+  } | null,
   sections: [{
     id: "214", tier: 2, zone: "sideline" | "end" | "corner", side: "N" | "NE" | ...,
     rowDepth: 0.85,
@@ -122,6 +159,7 @@ Coordinates: origin at the centre spot, **X along the pitch length, Z across it,
 `y` is the floor (step) level under the seat; the seat-view eye is `y + eyeHeight`.
 `yaw` rotates the seat about Y so that its local +Z faces the pitch: the facing direction is `(sin yaw, 0, cos yaw)`.
 Rows are listed front to back and seats left to right as seen when facing the pitch.
+Version 1 files, which had a single `shell` cross-section for the whole bowl, still load: the loader repeats that cross-section for all eight pieces.
 
 ### `tickets.json`
 
@@ -159,7 +197,7 @@ The renderer only reads `public/data/*.json`, so a real venue is a data swap, no
    }
    const out = [...sections.values()].map((s) => ({ ...s, rows: [...s.rows.values()].sort((a, b) => a.n - b.n) }));
    console.log(JSON.stringify({
-     version: 1, name: 'My Stadium', pitch: { length: 105, width: 68 },
+     version: 2, name: 'My Stadium', pitch: { length: 105, width: 68 },
      seat: { spacing: 0.5, inset: 0.5, aisle: 1.2, eyeHeight: 1.2 },
      shell: null, sections: out,
    }));

@@ -122,13 +122,19 @@ export class Lighting {
     sc.normalBias = 0.06;
     sc.radius = 3;
 
-    // Floodlight cross-light from the four roof corners.
-    const reach = shell ? shell.shape.r0 + (shell.roof?.innerD ?? shell.tiers[shell.tiers.length - 1].backD) : 40;
-    const height = shell?.roof ? shell.roof.innerY - 1 : 35;
+    // Floodlight cross-light from the four corners, at the front edge of the roofs (or the
+    // back of the stands where there is no roof).
+    const stands = shell?.stands.filter((s) => s !== null) ?? [];
+    const roofs = stands.map((s) => s.roof).filter((r) => r !== null);
+    const reach = shell
+      ? shell.shape.r0 +
+        (roofs.length ? Math.max(...roofs.map((r) => r.innerD)) : Math.max(...stands.map((s) => s.tiers[s.tiers.length - 1].backD), 0))
+      : 40;
+    const height = roofs.length ? Math.min(...roofs.map((r) => r.innerY)) - 1 : 35;
     for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
       const spot = new THREE.SpotLight(0xf2f6ff, 0, 0, 0.75, 0.7, 0);
-      const cx = shell ? shell.shape.sx * sx : 40 * sx;
-      const cz = shell ? shell.shape.sz * sz : 30 * sz;
+      const cx = shell ? (shell.shape.cx ?? 0) + shell.shape.sx * sx : 40 * sx;
+      const cz = shell ? (shell.shape.cz ?? 0) + shell.shape.sz * sz : 30 * sz;
       spot.position.set(cx + (sx * reach) / Math.SQRT2, height, cz + (sz * reach) / Math.SQRT2);
       spot.target.position.set(-sx * 18, 0, -sz * 10);
       this.spots.push(spot);
