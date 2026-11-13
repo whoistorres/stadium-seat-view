@@ -246,3 +246,7 @@ The renderer only reads `public/data/*.json`, so a real venue is a data swap, no
 ## Known limitations
 
 See [docs/VERIFICATION.md](docs/VERIFICATION.md) for measured performance, the geometry checks, and an honest list of what is approximate.
+
+## License
+
+[MIT](LICENSE): free to use, copy, modify and distribute, including commercially, as long as the copyright and licence notice are kept.
