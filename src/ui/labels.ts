@@ -18,8 +18,13 @@ export function tierLabel(stadium: Stadium, tier: TierId): string {
   return `${stadium.tierName(tier)} tier`;
 }
 
+/** Where a section is: its stand's name if the data has one, else e.g. "Sideline, North". */
+export function standLabel(s: Section, separator = ', '): string {
+  return s.stand ?? `${zoneLabel[s.zone]}${separator}${sideLabel[s.side]}`;
+}
+
 export function sectionArea(stadium: Stadium, s: Section): string {
-  return `${tierLabel(stadium, s.tier)} · ${zoneLabel[s.zone]}, ${sideLabel[s.side]}`;
+  return `${tierLabel(stadium, s.tier)} · ${standLabel(s)}`;
 }
 
 export function seatNumbers(stadium: Stadium, ref: SeatRef): { section: string; row: number; seat: number } {

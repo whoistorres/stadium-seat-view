@@ -4,14 +4,31 @@
     {
       "name": "stadium-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "stadium-four-stands",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-Command", "$env:STADIUM_CONFIG='four-stands'; npx.cmd vite --port 5175 --strictPort"],
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:STADIUM_CONFIG='four-stands'; npx.cmd vite --port 5175 --strictPort"
+      ],
       "port": 5175
+    },
+    {
+      "name": "stadium-st-james-park",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:STADIUM_CONFIG='st-james-park'; npx.cmd vite --port 5177 --strictPort"
+      ],
+      "port": 5177
     }
   ]
 }

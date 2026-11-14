@@ -4,7 +4,7 @@ import type { TierId } from '../data/types';
 import type { Actions } from '../state/actions';
 import { sameSeat, type AppState, type AppStore } from '../state/store';
 import { mountLegend } from './legend';
-import { escapeHtml, sectionArea, seatNumbers, sideLabel, tierLabel, zoneLabel } from './labels';
+import { escapeHtml, sectionArea, seatNumbers, standLabel, tierLabel } from './labels';
 
 const option = (value: string, label: string, disabled = false) => {
   const o = document.createElement('option');
@@ -118,7 +118,7 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
       const c = tickets.category(i);
       const free = tickets.available(i);
       const note = free === 0 ? 'sold out' : tickets.sectionMatches(i, filters()) ? `${free} free` : 'outside filters';
-      g.append(option(String(i), `${s.id} · ${c.id} ${tickets.format(c.price)} · ${zoneLabel[s.zone]} ${sideLabel[s.side]} (${note})`));
+      g.append(option(String(i), `${s.id} · ${c.id} ${tickets.format(c.price)} · ${standLabel(s, ' ')} (${note})`));
     });
     secSel.value = keep;
   };

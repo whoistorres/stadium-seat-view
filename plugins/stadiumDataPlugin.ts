@@ -1,14 +1,30 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { stadiumConfigs } from '../src/config/index.ts';
 import { generateStadium } from '../src/data/generateStadium.ts';
 import { generateTickets } from '../src/data/generateTickets.ts';
 
+/**
+ * Writes via a temp file and a rename, so the browser never reads a half-written file, and
+ * retries for a moment if Windows still has the file locked (e.g. mid-restart).
+ */
 function writeIfChanged(file: string, content: string): boolean {
   if (existsSync(file) && readFileSync(file, 'utf8') === content) return false;
-  writeFileSync(file, content);
-  return true;
+  const tmp = `${file}.tmp`;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      writeFileSync(tmp, content);
+      renameSync(tmp, file);
+      return true;
+    } catch (err) {
+      if (attempt >= 10) throw err;
+      const until = Date.now() + 100 * attempt;
+      while (Date.now() < until) {
+        // Short synchronous wait: Vite's config hook expects the files once it returns.
+      }
+    }
+  }
 }
 
 /**

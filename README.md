@@ -113,6 +113,7 @@ stands: {
 
 | Field | Meaning |
 |---|---|
+| `name` | Display name, e.g. "Milburn Stand". The UI shows it instead of "Sideline, North" |
 | `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet` and `sections`. Omit for all tiers unchanged |
 | `sections` | Sections per tier in this stand (a tier's own `sections` wins) |
 | `roof` | This stand's roof, or `null` for none |
@@ -128,6 +129,12 @@ STADIUM_CONFIG=four-stands npm run dev
 ```
 
 In PowerShell: `$env:STADIUM_CONFIG='four-stands'; npm run dev`. This rewrites `public/data/*.json`, so restart without it to go back to the default stadium.
+
+| Name | What it is |
+|---|---|
+| `default` | The generic three-tier bowl |
+| `four-stands` | Example ground with four different stands and a fourth tier |
+| `st-james-park` | St James' Park, Newcastle: an approximate model fitted to OpenStreetMap and published capacity. See the notes at the top of [the file](src/config/venues/stJamesPark.ts) for what is measured and what is estimated |
 
 **Rake and sightlines.** Each row rises at least `rowDepth × tan(rakeDeg)`. With `cValue` set (default 90 mm), each riser is made tall enough that the sightline from that row to the nearest point of the pitch passes at least that far above the eyes of the person in front: the standard stadium sightline method, solved row by row. Rakes therefore steepen slightly towards the back: about 24°→31° lower, 31°→32° middle, 34°→35° upper, capped at 35°. The governing distance is the closest the front row gets to the pitch anywhere, which is at the corners. All stands use this same distance, so stands with the same tier settings come out with the same cross-section.
 
@@ -251,3 +258,5 @@ See [docs/VERIFICATION.md](docs/VERIFICATION.md) for measured performance, the g
 ## License
 
 [MIT](LICENSE): free to use, copy, modify and distribute, including commercially, as long as the copyright and licence notice are kept.
+
+**Exception: venue data.** Venue configs in [`src/config/venues/`](src/config/venues/) contain information from [OpenStreetMap](https://www.openstreetmap.org/copyright), © OpenStreetMap contributors, available under the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/). Those files, and any `stadium.json` generated from them, are covered by the ODbL rather than MIT: credit OpenStreetMap, and share anything you build from that data under the same licence. Venue models are approximate, not official, and are not endorsed by the clubs.

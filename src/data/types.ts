@@ -57,6 +57,8 @@ export interface StandTier extends Partial<TierGeometry> {
  * or a corner (NE, NW, SE, SW). Anything left out falls back to the stadium-wide value.
  */
 export interface StandConfig {
+  /** Display name, e.g. "Milburn Stand". Shown instead of the compass position. */
+  name?: string;
   /** Tiers present in this stand, front to back. Omit for all of the stadium's tiers. */
   tiers?: StandTier[];
   /** Sections per tier in this stand. */
@@ -116,6 +118,8 @@ export interface Section {
   tier: TierId;
   zone: Zone;
   side: Side;
+  /** Name of the stand the section is in, e.g. "Milburn Stand". Optional. */
+  stand?: string;
   rowDepth: number;
   rows: Row[];
 }

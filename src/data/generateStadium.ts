@@ -129,6 +129,7 @@ function roofSpec(roof: RoofConfig, shellDepth: number, top: TierLayout): RoofSp
 
 /** A stand with every override applied: what the generator actually builds for one piece. */
 export interface ResolvedStand {
+  name?: string;
   tiers: TierConfig[];
   /** Sections across each tier, parallel to `tiers`. */
   sections: number[];
@@ -153,6 +154,7 @@ export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(b
       return { ...base, ...withoutUndefined(geometry) };
     });
     return {
+      name: o?.name,
       tiers,
       sections: list.map((t) => t.sections ?? o?.sections ?? cfg.bowl.sectionsPerZone[piece.zone]),
       roof: o?.roof === undefined ? cfg.roof : (o.roof ?? { ...cfg.roof, enabled: false }),
@@ -232,6 +234,7 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
           tier: tier.id,
           zone: piece.zone,
           side: piece.side,
+          ...(st.name ? { stand: st.name } : {}),
           rowDepth: t.rowDepth,
           rows,
         });
