@@ -33,6 +33,11 @@ function hashString(s: string): number {
 
 /** Mock ticketing: deterministic for a given stadium and seed. */
 export function generateTickets(stadium: StadiumData, seed = 2026): TicketData {
+  // Pricing goes by a tier's position, not its number: front, back (if more than one) or in between.
+  const tierIds = [...new Set(stadium.sections.map((s) => s.tier))].sort((a, b) => a - b);
+  const front = tierIds[0];
+  const back = tierIds.length > 1 ? tierIds[tierIds.length - 1] : null;
+
   // Position of each section within its stand (same tier and side), to find the central ones.
   const groupSize = new Map<string, number>();
   const groupIndex = stadium.sections.map((s) => {
@@ -49,9 +54,11 @@ export function generateTickets(stadium: StadiumData, seed = 2026): TicketData {
     const n = groupSize.get(`${s.tier}${s.side}`)!;
     const central = Math.abs(groupIndex[si] - (n - 1) / 2) < n / 4;
     let category: CategoryId;
-    if (s.zone === 'sideline') category = s.tier === 3 ? (central ? 'B' : 'C') : central ? 'A' : 'B';
-    else if (s.zone === 'corner') category = s.tier === 3 ? 'D' : 'C';
-    else category = s.tier === 2 ? 'C' : 'D';
+    const isBack = s.tier === back;
+    const isMiddle = s.tier !== front && !isBack;
+    if (s.zone === 'sideline') category = isBack ? (central ? 'B' : 'C') : central ? 'A' : 'B';
+    else if (s.zone === 'corner') category = isBack ? 'D' : 'C';
+    else category = isMiddle ? 'C' : 'D';
     sections[s.id] = { category };
 
     // Two-state Markov chain whose long-run sold share equals p.

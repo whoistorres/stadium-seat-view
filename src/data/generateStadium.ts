@@ -161,8 +161,28 @@ export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(b
   });
 }
 
+/** Catches tier mistakes in a config with a message that says what to fix. */
+function checkTiers(cfg: StadiumConfig): void {
+  if (cfg.tiers.length === 0) throw new Error('stadiumConfig: "tiers" needs at least one tier');
+  const ids = new Set<number>();
+  for (const t of cfg.tiers) {
+    if (!Number.isInteger(t.id) || t.id < 1) throw new Error(`stadiumConfig: tier id ${t.id} must be a positive whole number`);
+    if (ids.has(t.id)) throw new Error(`stadiumConfig: tier id ${t.id} is used twice in "tiers"`);
+    ids.add(t.id);
+  }
+  for (const [side, stand] of Object.entries(cfg.stands ?? {})) {
+    const list = stand?.tiers?.map((t) => t.id) ?? [];
+    list.forEach((id, i) => {
+      if (i > 0 && id <= list[i - 1]) {
+        throw new Error(`stadiumConfig: stand ${side} lists tiers ${list.join(', ')}; list each tier once, front to back (rising ids)`);
+      }
+    });
+  }
+}
+
 /** Pure function: same config in, same seats (and seat IDs) out. */
 export function generateStadium(cfg: StadiumConfig): StadiumData {
+  checkTiers(cfg);
   const shape = bowlShape(cfg);
   const pieces = bowlPieces(shape);
   const stands = resolveStands(cfg, pieces);
@@ -219,6 +239,18 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
     });
   }
 
+  const seen = new Map<string, TierConfig['id']>();
+  for (const sec of sections) {
+    const other = seen.get(sec.id);
+    if (other !== undefined) {
+      throw new Error(
+        `stadiumConfig: section ${sec.id} is numbered twice (tiers ${other} and ${sec.tier}); ` +
+          `move a tier's "firstSection" so the numbers no longer overlap`,
+      );
+    }
+    seen.set(sec.id, sec.tier);
+  }
+
   const shell: ShellSpec = {
     shape,
     stands: pieces.map((piece, pi): StandShell | null => {
@@ -246,6 +278,7 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
   return {
     version: 2,
     name: cfg.name,
+    tiers: [...cfg.tiers].sort((a, b) => a.id - b.id).map((t) => ({ id: t.id, name: t.name })),
     pitch: { length: cfg.pitch.length, width: cfg.pitch.width },
     seat: { spacing: seatSpacing, inset: seatInset, aisle: aisleWidth, eyeHeight: cfg.eyeHeight },
     shell,

@@ -115,7 +115,7 @@ export class SeatLayer {
 
     this.baseColor = (ref, out) => {
       const s = stadium.sections[ref.section];
-      out.copy(ZONE_BASE[s.zone]).offsetHSL(0, 0, (s.tier - 1) * 0.06);
+      out.copy(ZONE_BASE[s.zone]).offsetHSL(0, 0, Math.min(4, stadium.tierIndex(s.tier)) * 0.06);
     };
   }
 

@@ -1,4 +1,8 @@
-export type TierId = 1 | 2 | 3;
+/**
+ * Tier number: any positive integer, unique within a stadium. Higher numbers sit further back
+ * and higher up (1 = front tier); the numbers need not be consecutive.
+ */
+export type TierId = number;
 export type Zone = 'sideline' | 'end' | 'corner';
 export type Side = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW';
 
@@ -182,9 +186,17 @@ export interface LegacyShellSpec {
   roof: RoofSpec | null;
 }
 
+/** Name of a tier for the UI, e.g. { id: 2, name: 'Middle' }. */
+export interface TierInfo {
+  id: TierId;
+  name: string;
+}
+
 export interface StadiumData {
   version: 2;
   name: string;
+  /** Tier names, front to back. Optional: without it the UI derives names from the tier count. */
+  tiers?: TierInfo[];
   pitch: { length: number; width: number };
   /** Rendering hints for building steps from seat rows. */
   seat: { spacing: number; inset: number; aisle: number; eyeHeight: number };

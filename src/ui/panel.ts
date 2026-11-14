@@ -105,15 +105,16 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
   const fillSections = () => {
     const keep = secSel.value;
     secSel.replaceChildren(option('', 'Overview (no section)'));
+    // One group per tier, front tier first, whatever order the sections come in.
     const groups = new Map<TierId, HTMLOptGroupElement>();
+    for (const tier of stadium.tierIds) {
+      const g = document.createElement('optgroup');
+      g.label = tierLabel(stadium, tier);
+      groups.set(tier, g);
+      secSel.append(g);
+    }
     stadium.sections.forEach((s, i) => {
-      let g = groups.get(s.tier);
-      if (!g) {
-        g = document.createElement('optgroup');
-        g.label = tierLabel(stadium, s.tier);
-        groups.set(s.tier, g);
-        secSel.append(g);
-      }
+      const g = groups.get(s.tier)!;
       const c = tickets.category(i);
       const free = tickets.available(i);
       const note = free === 0 ? 'sold out' : tickets.sectionMatches(i, filters()) ? `${free} free` : 'outside filters';

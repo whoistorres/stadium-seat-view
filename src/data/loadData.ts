@@ -1,6 +1,6 @@
 import { PIECE_SIDES } from './bowlPath';
 import { seatId } from './seatId';
-import type { LegacyShellSpec, SeatTuple, Section, ShellSpec, StadiumData } from './types';
+import type { LegacyShellSpec, SeatTuple, Section, ShellSpec, StadiumData, TierId } from './types';
 
 /** Index-based reference to a seat: positions into sections[] / rows[] / seats[]. */
 export interface SeatRef {
@@ -21,17 +21,44 @@ export interface SectionMeta {
 
 export type Direction = 'left' | 'right' | 'forward' | 'back';
 
+/** Names used when the data does not name its tiers, by number of tiers. */
+const DEFAULT_TIER_NAMES: Record<number, string[]> = {
+  1: ['Main'],
+  2: ['Lower', 'Upper'],
+  3: ['Lower', 'Middle', 'Upper'],
+};
+
 export class Stadium {
   readonly sections: Section[];
   readonly meta: SectionMeta[];
   readonly totalSeats: number;
+  /** Distinct tier numbers in the data, front to back. */
+  readonly tierIds: TierId[];
   private readonly byId = new Map<string, number>();
+  private readonly tierNames = new Map<TierId, string>();
 
   constructor(readonly data: StadiumData) {
     this.sections = data.sections;
     this.meta = data.sections.map((s) => sectionMeta(s));
     this.totalSeats = this.meta.reduce((n, m) => n + m.seatCount, 0);
     data.sections.forEach((s, i) => this.byId.set(s.id, i));
+    this.tierIds = [...new Set(data.sections.map((s) => s.tier))].sort((a, b) => a - b);
+    const fallback = DEFAULT_TIER_NAMES[this.tierIds.length];
+    this.tierIds.forEach((id, i) => {
+      const named =
+        data.tiers?.find((t) => t.id === id)?.name ??
+        data.shell?.stands.flatMap((s) => s?.tiers ?? []).find((t) => t.id === id)?.name;
+      this.tierNames.set(id, named ?? fallback?.[i] ?? `Tier ${id}`);
+    });
+  }
+
+  /** Position of a tier from the front: 0 = front tier. */
+  tierIndex(id: TierId): number {
+    return this.tierIds.indexOf(id);
+  }
+
+  tierName(id: TierId): string {
+    return this.tierNames.get(id) ?? `Tier ${id}`;
   }
 
   sectionIndex(id: string): number {
@@ -172,6 +199,9 @@ function validate(data: unknown): asserts data is StadiumData {
   for (const s of d.sections) {
     if (ids.has(s.id)) throw new Error(`stadium.json: duplicate section id "${s.id}"`);
     ids.add(s.id);
+    if (!Number.isInteger(s.tier) || s.tier < 1) {
+      throw new Error(`stadium.json: section "${s.id}" needs "tier" to be a positive whole number`);
+    }
     const first = s.rows?.[0]?.seats?.[0];
     if (!Array.isArray(first) || first.length !== 5) {
       throw new Error(`stadium.json: section "${s.id}" needs rows of [n, x, y, z, yaw] seats`);

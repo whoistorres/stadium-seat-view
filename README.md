@@ -93,7 +93,7 @@ src/
 | `bowl.aisleWidth` | Minimum stair aisle between sections |
 | `bowl.seatInset` | Seat position measured back from the front edge of its step |
 | `bowl.sectionsPerZone` | Sections per sideline, end and corner, per tier |
-| `tiers[]` | One entry per tier: `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front), `lift` (height above the tier below), `parapet` |
+| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front), `lift` (height above the tier below), `parapet` |
 | `roof` | `enabled`, `clearance` above the top row, `cantilever` reach, `slopeDeg`, `thickness` |
 | `shellDepth` | Concourse/facade depth behind the top tier |
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
@@ -141,6 +141,7 @@ Rendering code never reads the config, only the generated JSON, so changing valu
 {
   version: 2,
   name: string,
+  tiers?: [{ id: 1, name: "Lower" }, ...],          // optional tier names, front to back
   pitch: { length, width },                       // metres
   seat: { spacing, inset, aisle, eyeHeight },     // used to build steps under the seats
   shell: {                                        // generic walls/roof; null = none
@@ -221,7 +222,7 @@ The renderer only reads `public/data/*.json`, so a real venue is a data swap, no
 
 5. **Check the result** in seat view. The scripted checks in the next section are a good starting point.
 
-`TierId` is typed as `1 | 2 | 3`. A venue with more tiers works at runtime; widen the type in `src/data/types.ts` and add a name in `ui/labels.ts`.
+**Any number of tiers.** Tier ids are positive whole numbers that rise from front to back; they need not be consecutive (1, 2, 3, 7 is fine). Name them with an optional top-level `tiers: [{ id, name }]` in `stadium.json`. Without it the UI uses Main / Lower, Upper / Lower, Middle, Upper for one to three tiers and "Tier N" beyond that.
 
 ## Development notes
 

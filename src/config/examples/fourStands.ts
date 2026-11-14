@@ -5,7 +5,7 @@ import { stadiumConfig } from '../stadiumConfig.ts';
  * Example of per-stand overrides: four different stands in the style of an older ground.
  * Not a real venue. Run it with STADIUM_CONFIG=four-stands (see README).
  *
- * - South (main stand): lower and upper tier, full roof
+ * - South (main stand): lower, upper and a fourth "top" tier, full roof
  * - North: one big single tier with a shorter roof
  * - East: two tiers, further from the goal line, no roof
  * - West: one shallow tier close to the goal line
@@ -14,8 +14,13 @@ import { stadiumConfig } from '../stadiumConfig.ts';
 export const fourStandsExample: StadiumConfig = {
   ...stadiumConfig,
   name: 'Four Stands (example)',
+  // A fourth tier, used only by the main stand. Tier ids just need to rise from front to back.
+  tiers: [
+    ...stadiumConfig.tiers,
+    { id: 4, name: 'Top', firstSection: 401, rows: 10, rowDepth: 0.85, rakeDeg: 34, cValue: 90, setback: 1.6, lift: 1.9, parapet: 0.7 },
+  ],
   stands: {
-    S: { tiers: [{ id: 1 }, { id: 3, rows: 18 }] },
+    S: { tiers: [{ id: 1 }, { id: 3, rows: 12 }, { id: 4 }] },
     N: {
       tiers: [{ id: 1, rows: 36, sections: 10 }],
       roof: { ...stadiumConfig.roof, cantilever: 22, clearance: 5 },
