@@ -68,7 +68,7 @@ src/
     types.ts                   StadiumConfig, StadiumData, TicketData types
     generateStadium.ts         config -> StadiumData (pure, deterministic, no three.js)
     generateTickets.ts         StadiumData -> mock TicketData (seeded)
-    bowlPath.ts                rounded-rectangle bowl geometry shared by generator and renderer
+    bowlPath.ts                bowl geometry (round or square corners) shared by generator and renderer
     envelope.ts                stand/roof heights used to keep the camera out of the building
     loadData.ts                fetch + validate stadium.json, seat indexing, neighbour search
     tickets.ts                 fetch + validate tickets.json, availability lookups
@@ -89,6 +89,7 @@ src/
 | `pitch.length`, `pitch.width` | Playing area in metres (105 × 68) |
 | `pitch.runoffSide`, `pitch.runoffEnd` | Distance from touchline / goal line to the front row |
 | `bowl.cornerRadius` | Radius of the front-row line at the corners. Larger = rounder bowl, but the corner front row also swings in towards the corner flag (14 m keeps it 6.2 m away; 22 m would be 2.9 m) |
+| `bowl.corners` | `'round'` (default) or `'square'`. Square corners are filled in: each stand's rows run straight on into the corner and meet the next stand's rows at the diagonal, with an aisle up it. Corner sections split evenly between the two legs, so give square corners an even section count |
 | `bowl.seatSpacing` | Centre-to-centre seat width |
 | `bowl.aisleWidth` | Minimum stair aisle between sections |
 | `bowl.seatInset` | Seat position measured back from the front edge of its step |
@@ -119,6 +120,7 @@ stands: {
 | `roof` | This stand's roof, or `null` for none |
 | `shellDepth` | Concourse/facade depth behind this stand |
 | `runoff` | `N`, `S`, `E`, `W` only: gap from the touchline or goal line to this stand. Different values on opposite sides move the bowl off-centre |
+| `corner` | `NE`, `NW`, `SE`, `SW` only: `'round'` or `'square'` for this corner, overriding `bowl.corners` |
 
 Section numbers still run on within each tier, going round the bowl from the south side and skipping stands that don't have that tier. Stands with the same tier settings share one cross-section and join seamlessly. Where neighbouring stands differ, or one is missing, each stand's end is closed off with an end wall, and the same goes for roofs.
 
@@ -152,7 +154,7 @@ Rendering code never reads the config, only the generated JSON, so changing valu
   pitch: { length, width },                       // metres
   seat: { spacing, inset, aisle, eyeHeight },     // used to build steps under the seats
   shell: {                                        // generic walls/roof; null = none
-    shape: { sx, sz, r0, cx?, cz? },              // rounded-rectangle front-row line
+    shape: { sx, sz, r0, cx?, cz?, squareCorners? }, // front-row line: rectangle with round (or listed square) corners
     stands: [StandShell | null, ...]              // 8 entries: S, SE, E, NE, N, NW, W, SW; null = no stand
   } | null,
   sections: [{

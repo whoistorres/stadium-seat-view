@@ -31,6 +31,13 @@ function runoffs(cfg: StadiumConfig): { S: number; N: number; E: number; W: numb
   };
 }
 
+const CORNERS = ['SE', 'NE', 'NW', 'SW'] as const;
+
+/** Corners built square: a corner stand's own `corner`, else the bowl-wide `corners`. */
+function squareCorners(cfg: StadiumConfig): Array<(typeof CORNERS)[number]> {
+  return CORNERS.filter((side) => (cfg.stands?.[side]?.corner ?? cfg.bowl.corners ?? 'round') === 'square');
+}
+
 export function bowlShape(cfg: StadiumConfig): BowlShape {
   const r = runoffs(cfg);
   const halfL = cfg.pitch.length / 2;
@@ -48,19 +55,23 @@ export function bowlShape(cfg: StadiumConfig): BowlShape {
   const cz = round((zS + zN) / 2, 3);
   if (cx !== 0) shape.cx = cx;
   if (cz !== 0) shape.cz = cz;
+  const square = squareCorners(cfg);
+  if (square.length) shape.squareCorners = square;
   return shape;
 }
 
 /**
  * Closest the front row gets to the pitch. Along the straights that is the run-off; at a
  * rounded corner the arc swings in towards the corner flag, so a large corner radius can
- * bring the front row much closer there.
+ * bring the front row much closer there. A square corner stays further away than either stand.
  */
 export function nearestPitchGap(cfg: StadiumConfig): number {
   const r = runoffs(cfg);
-  const r0 = bowlShape(cfg).r0;
+  const { r0, squareCorners: square = [] } = bowlShape(cfg);
   let gap = Math.min(r.S, r.N, r.E, r.W);
-  for (const [end, side] of [[r.E, r.S], [r.E, r.N], [r.W, r.N], [r.W, r.S]]) {
+  const corners = [['SE', r.E, r.S], ['NE', r.E, r.N], ['NW', r.W, r.N], ['SW', r.W, r.S]] as const;
+  for (const [corner, end, side] of corners) {
+    if (square.includes(corner)) continue;
     const flagToArcCentre = Math.hypot(Math.max(0, r0 - end), Math.max(0, r0 - side));
     gap = Math.min(gap, r0 - flagToArcCentre);
   }
@@ -211,16 +222,22 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
       const t = st.tiers[ti];
       const layout = layouts[pi]![ti];
       const count = st.sections[ti];
+      // A square corner is two straight legs; sections never wrap round the turn, so the
+      // aisle between the legs' blocks runs up the diagonal. The first leg takes the odd one.
+      const legs = piece.kind === 'arc' && piece.square ? [Math.ceil(count / 2), Math.floor(count / 2)] : [count];
       for (let s = 0; s < count; s++) {
+        const leg = s < legs[0] ? 0 : 1;
+        const inLeg = s - (leg ? legs[0] : 0);
         const rows: Row[] = [];
         for (let k = 0; k < t.rows; k++) {
           const d = layout.frontD + k * t.rowDepth + seatInset;
           const y = layout.rowY[k];
           const total = pieceLength(piece, shape, d);
-          const slice = total / count;
+          const legLength = total / legs.length;
+          const slice = legLength / legs[leg];
           const n = Math.max(1, Math.floor((slice - aisleWidth) / seatSpacing));
           // Centre the block in its slice; whatever is left over widens the aisles.
-          const first = s * slice + (slice - (n - 1) * seatSpacing) / 2;
+          const first = leg * legLength + inLeg * slice + (slice - (n - 1) * seatSpacing) / 2;
           const seats: SeatTuple[] = [];
           for (let i = 0; i < n; i++) {
             const p = pointOnPiece(piece, shape, d, (first + i * seatSpacing) / total);

@@ -17,9 +17,8 @@ import type { RoofConfig, StadiumConfig, StandConfig, TierConfig } from '../../d
  *   wrapping their shared corner under one big cantilever roof. East Stand is single-tiered;
  *   Gallowgate End (south) is one bank split by a walkway (see gallowgateProfile). The other
  *   three corners are filled to the same height as the stand next to them.
- * - Capacity: about 52,300 in published figures; rows here are fitted to land close to it.
- *   The generator's corners are arcs, not the real square-filled corners, so corner seats
- *   are fewer and the stands carry the difference.
+ * - Capacity: about 52,300 in published figures. Square corners and 0.5 m seats give
+ *   about 53,400; the model has no executive boxes, media seats or wide stair landings.
  * - Section numbers (101..., 201...) are generated, NOT the club's real block numbers.
  *   Row counts, rakes and roof sizes are fitted estimates, not survey data.
  *
@@ -72,10 +71,11 @@ export const stJamesPark: StadiumConfig = {
   name: "St James' Park (approximate)",
   pitch: { length: 105, width: 68, runoffSide: 5, runoffEnd: 7 },
   bowl: {
-    // Small radius: the real corners are filled close to square.
+    // The real corners are filled in square: rows run straight on and meet at the diagonal.
+    // Corner sections split evenly between the two legs, so give corners even counts.
     cornerRadius: 6,
-    // Close to the 460 mm minimum seat width common in older UK grounds.
-    seatSpacing: 0.47,
+    corners: 'square',
+    seatSpacing: 0.5,
     aisleWidth: 1.2,
     seatInset: 0.5,
     sectionsPerZone: { sideline: 8, end: 5, corner: 3 },
@@ -86,12 +86,12 @@ export const stJamesPark: StadiumConfig = {
   eyeHeight: 1.2,
   stands: {
     N: tall('Milburn Stand', 9),
-    NE: tall('Milburn–Leazes corner', 4),
+    NE: tall('Milburn–Leazes corner', 8),
     E: tall('Leazes End', 6),
-    SE: { name: 'Leazes–East corner', sections: 3, ...eastProfile },
+    SE: { name: 'Leazes–East corner', sections: 4, ...eastProfile },
     S: { name: 'East Stand', sections: 8, ...eastProfile },
-    SW: { name: 'Strawberry Corner', sections: 3, ...eastProfile },
+    SW: { name: 'Strawberry Corner', sections: 4, ...eastProfile },
     W: { name: 'Gallowgate End', sections: 6, ...gallowgateProfile },
-    NW: { name: 'Gallowgate–Milburn corner', sections: 4, ...gallowgateProfile },
+    NW: { name: 'Gallowgate–Milburn corner', sections: 6, ...gallowgateProfile },
   },
 };

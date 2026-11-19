@@ -71,7 +71,15 @@ export interface StandConfig {
    * corners, which follow the stands either side.
    */
   runoff?: number;
+  /** Corners only: 'square' carries both neighbouring stands' rows straight into the corner. */
+  corner?: CornerStyle;
 }
+
+/**
+ * 'round': rows curve round the corner (radius grows with each row). 'square': rows run
+ * straight on and meet the other stand's rows at the diagonal, as in a filled-in corner.
+ */
+export type CornerStyle = 'round' | 'square';
 
 export interface StadiumConfig {
   name: string;
@@ -79,6 +87,8 @@ export interface StadiumConfig {
   bowl: {
     /** Corner radius of the front-row line; larger = rounder bowl. */
     cornerRadius: number;
+    /** Shape of every corner unless a corner stand sets its own `corner`. Default 'round'. */
+    corners?: CornerStyle;
     /** Centre-to-centre seat spacing along a row. */
     seatSpacing: number;
     /** Stair aisle width between neighbouring sections. */
@@ -135,6 +145,11 @@ export interface BowlShape {
   r0: number;
   cx?: number;
   cz?: number;
+  /**
+   * Corners built square instead of round: each row runs straight on along both stands and
+   * the two meet at the diagonal. Offsetting keeps the corner square. Omitted = all round.
+   */
+  squareCorners?: Array<'SE' | 'NE' | 'NW' | 'SW'>;
 }
 
 /** Resolved tier envelope. d = horizontal offset outward from the front-row line, y = height. */

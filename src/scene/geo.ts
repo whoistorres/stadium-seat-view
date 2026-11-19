@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pieceLength, pointOnPiece, type PathPoint, type Piece } from '../data/bowlPath';
+import { pieceLength, pieceSamples, pointOnPiece, type PathPoint, type Piece } from '../data/bowlPath';
 import type { BowlShape } from '../data/types';
 
 export type V3 = readonly [number, number, number];
@@ -41,8 +41,7 @@ export interface RingEdge {
 
 /** Points along one piece at offset d, ends included. Same count for every d, so two can be stitched. */
 function piecePoints(shape: BowlShape, piece: Piece, d: number, arcSegments: number): PathPoint[] {
-  const n = piece.kind === 'arc' ? arcSegments : 1;
-  return Array.from({ length: n + 1 }, (_, i) => pointOnPiece(piece, shape, d, i / n));
+  return pieceSamples(piece, arcSegments).map((t) => pointOnPiece(piece, shape, d, t));
 }
 
 /**
