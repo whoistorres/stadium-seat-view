@@ -4,6 +4,7 @@ import type {
   RoofConfig,
   RoofSpec,
   Row,
+  RowLabels,
   SeatTuple,
   Section,
   ShellSpec,
@@ -144,6 +145,8 @@ export interface ResolvedStand {
   tiers: TierConfig[];
   /** Sections across each tier, parallel to `tiers`. */
   sections: number[];
+  /** Block names across each tier, parallel to `tiers`; undefined = numbered. */
+  blocks: Array<string[] | undefined>;
   roof: RoofConfig;
   shellDepth: number;
 }
@@ -159,7 +162,7 @@ export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(b
     if (o === null) return null;
     const list: StandTier[] = o?.tiers ?? cfg.tiers.map((t) => ({ id: t.id }));
     if (list.length === 0) return null;
-    const tiers = list.map(({ sections: _ignored, ...geometry }) => {
+    const tiers = list.map(({ sections: _sections, blocks: _blocks, ...geometry }) => {
       const base = cfg.tiers.find((t) => t.id === geometry.id);
       if (!base) throw new Error(`stadiumConfig: stand ${piece.side} uses tier ${geometry.id}, which is not in "tiers"`);
       return { ...base, ...withoutUndefined(geometry) };
@@ -167,7 +170,8 @@ export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(b
     return {
       name: o?.name,
       tiers,
-      sections: list.map((t) => t.sections ?? o?.sections ?? cfg.bowl.sectionsPerZone[piece.zone]),
+      sections: list.map((t) => t.blocks?.length ?? t.sections ?? o?.sections ?? cfg.bowl.sectionsPerZone[piece.zone]),
+      blocks: list.map((t) => t.blocks),
       roof: o?.roof === undefined ? cfg.roof : (o.roof ?? { ...cfg.roof, enabled: false }),
       shellDepth: o?.shellDepth ?? cfg.shellDepth,
     };
@@ -183,7 +187,24 @@ function checkTiers(cfg: StadiumConfig): void {
     if (ids.has(t.id)) throw new Error(`stadiumConfig: tier id ${t.id} is used twice in "tiers"`);
     ids.add(t.id);
   }
+  for (const t of cfg.tiers) checkRowLabels(t.rowLabels, t.rows, `tier ${t.id}`);
   for (const [side, stand] of Object.entries(cfg.stands ?? {})) {
+    for (const t of stand?.tiers ?? []) {
+      const where = `stand ${side}, tier ${t.id}`;
+      if (t.blocks) {
+        if (t.blocks.length === 0) throw new Error(`stadiumConfig: ${where} has an empty "blocks" list; leave it out to number the sections`);
+        if (t.sections !== undefined && t.sections !== t.blocks.length) {
+          throw new Error(`stadiumConfig: ${where} has ${t.blocks.length} blocks but "sections: ${t.sections}"; drop "sections"`);
+        }
+        for (const b of t.blocks) {
+          if (!/^[^\s-]+$/.test(b)) throw new Error(`stadiumConfig: ${where} block "${b}" must be one word with no hyphens`);
+        }
+      }
+      if (t.rowLabels !== undefined) {
+        const base = cfg.tiers.find((c) => c.id === t.id);
+        checkRowLabels(t.rowLabels, t.rows ?? base?.rows ?? 0, where);
+      }
+    }
     const list = stand?.tiers?.map((t) => t.id) ?? [];
     list.forEach((id, i) => {
       if (i > 0 && id <= list[i - 1]) {
@@ -191,6 +212,20 @@ function checkTiers(cfg: StadiumConfig): void {
       }
     });
   }
+}
+
+function checkRowLabels(labels: RowLabels | undefined, rows: number, where: string): void {
+  if (!Array.isArray(labels)) return;
+  if (labels.length < rows) throw new Error(`stadiumConfig: ${where} has ${rows} rows but only ${labels.length} "rowLabels"`);
+  if (new Set(labels).size !== labels.length) throw new Error(`stadiumConfig: ${where} repeats a row label in "rowLabels"`);
+}
+
+/** Label of row k (0 = front), or undefined when rows are plain numbers. */
+export function rowLabel(labels: RowLabels | undefined, k: number): string | undefined {
+  if (Array.isArray(labels)) return labels[k];
+  if (labels !== 'letters') return undefined;
+  // A..Z, then AA, BB, ... ZZ, then AAA...
+  return String.fromCharCode(65 + (k % 26)).repeat(Math.floor(k / 26) + 1);
 }
 
 /** Pure function: same config in, same seats (and seat IDs) out. */
@@ -211,7 +246,7 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
   });
 
   // Tier by tier, then round the bowl: section numbers run on within a tier and skip
-  // pieces that do not have that tier.
+  // pieces that do not have that tier, and sections that have a block name.
   const sections: Section[] = [];
   for (const tier of cfg.tiers) {
     let sectionNumber = tier.firstSection;
@@ -222,6 +257,7 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
       const t = st.tiers[ti];
       const layout = layouts[pi]![ti];
       const count = st.sections[ti];
+      const names = st.blocks[ti];
       // A square corner is two straight legs; sections never wrap round the turn, so the
       // aisle between the legs' blocks runs up the diagonal. The first leg takes the odd one.
       const legs = piece.kind === 'arc' && piece.square ? [Math.ceil(count / 2), Math.floor(count / 2)] : [count];
@@ -244,10 +280,11 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
             const yaw = Math.atan2(-p.nx, -p.nz);
             seats.push([i + 1, round(p.x, 2), round(y, 2), round(p.z, 2), round(yaw, 4)]);
           }
-          rows.push({ n: k + 1, seats });
+          const label = rowLabel(t.rowLabels, k);
+          rows.push(label === undefined ? { n: k + 1, seats } : { n: k + 1, label, seats });
         }
         sections.push({
-          id: String(sectionNumber++),
+          id: names ? names[s] : String(sectionNumber++),
           tier: tier.id,
           zone: piece.zone,
           side: piece.side,
@@ -264,8 +301,8 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
     const other = seen.get(sec.id);
     if (other !== undefined) {
       throw new Error(
-        `stadiumConfig: section ${sec.id} is numbered twice (tiers ${other} and ${sec.tier}); ` +
-          `move a tier's "firstSection" so the numbers no longer overlap`,
+        `stadiumConfig: section ${sec.id} is used twice (tiers ${other} and ${sec.tier}); ` +
+          `rename a block, or move a tier's "firstSection" so the numbers no longer overlap`,
       );
     }
     seen.set(sec.id, sec.tier);

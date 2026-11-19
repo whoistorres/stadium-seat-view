@@ -4,7 +4,7 @@ import type { TierId } from '../data/types';
 import type { Actions } from '../state/actions';
 import { sameSeat, type AppState, type AppStore } from '../state/store';
 import { mountLegend } from './legend';
-import { escapeHtml, sectionArea, seatNumbers, standLabel, tierLabel } from './labels';
+import { escapeHtml, rowName, sectionArea, seatNumbers, standLabel, tierLabel } from './labels';
 
 const option = (value: string, label: string, disabled = false) => {
   const o = document.createElement('option');
@@ -84,7 +84,8 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
     if (s.selectedSeat !== p.selectedSeat || s.mode !== p.mode) {
       const ref = s.selectedSeat;
       summary.textContent = ref
-        ? `Sec ${seatNumbers(stadium, ref).section} · Row ${seatNumbers(stadium, ref).row} · Seat ${seatNumbers(stadium, ref).seat} · ${tickets.format(tickets.price(ref))}${tickets.isSold(ref) ? ' · sold' : ''}`
+        ? (({ section, row, seat }) => `Sec ${section} · Row ${row} · Seat ${seat}`)(seatNumbers(stadium, ref)) +
+          ` · ${tickets.format(tickets.price(ref))}${tickets.isSold(ref) ? ' · sold' : ''}`
         : 'Seats & prices';
     }
     // Entering a seat view on a phone: get the sheet out of the way.
@@ -136,7 +137,7 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
     if (si < 0) return;
     stadium.sections[si].rows.forEach((r, ri) => {
       const free = tickets.available(si, ri);
-      rowSel.append(option(String(ri), `Row ${r.n} (${free} free)`));
+      rowSel.append(option(String(ri), `Row ${rowName(r)} (${free} free)`));
     });
   };
   const fillSeats = (si: number, ri: number) => {
@@ -192,7 +193,7 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
     return `
       <dl>
         <div class="stat-row"><dt>Section</dt><dd>${escapeHtml(n.section)}</dd></div>
-        <div class="stat-row"><dt>Row</dt><dd>${n.row}</dd></div>
+        <div class="stat-row"><dt>Row</dt><dd>${escapeHtml(n.row)}</dd></div>
         <div class="stat-row"><dt>Seat</dt><dd>${n.seat}</dd></div>
         <div class="stat-row"><dt>Area</dt><dd>${escapeHtml(sectionArea(stadium, sec))}</dd></div>
         <div class="stat-row"><dt>Category</dt><dd><span class="swatch swatch-sm pat-${c.pattern}" style="--c:${c.color}" aria-hidden="true">${c.id}</span> ${c.id} · ${escapeHtml(c.label)}</dd></div>
@@ -225,7 +226,7 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
     if (!ref) return;
     const n = seatNumbers(stadium, ref);
     chosenBody.innerHTML = `
-      <p class="chosen-line">Section <b>${escapeHtml(n.section)}</b> · Row <b>${n.row}</b> · Seat <b>${n.seat}</b>
+      <p class="chosen-line">Section <b>${escapeHtml(n.section)}</b> · Row <b>${escapeHtml(n.row)}</b> · Seat <b>${n.seat}</b>
         <span class="price">${tickets.format(tickets.price(ref))}</span></p>
       <p class="muted"><code>${escapeHtml(stadium.id(ref))}</code> is held in this session. No payment is taken in this preview.</p>
       <div class="card-actions">

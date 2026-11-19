@@ -11,7 +11,7 @@ export type Side = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW';
 export interface TierConfig {
   id: TierId;
   name: string;
-  /** Number of the first section in this tier, e.g. 101. */
+  /** Number of the first section in this tier, e.g. 101. Stands with `blocks` use names instead. */
   firstSection: number;
   rows: number;
   /** Tread depth per row, metres. */
@@ -29,7 +29,14 @@ export interface TierConfig {
   lift: number;
   /** Height of the front wall above the first tread. */
   parapet: number;
+  /**
+   * How rows are labelled, front to back. 'numbers' (default): 1, 2, 3... 'letters': A to Z,
+   * then AA, BB, CC... An array gives every row's label in order, e.g. to skip I and O.
+   */
+  rowLabels?: RowLabels;
 }
+
+export type RowLabels = 'numbers' | 'letters' | string[];
 
 export interface RoofConfig {
   enabled: boolean;
@@ -50,6 +57,13 @@ export interface StandTier extends Partial<TierGeometry> {
   id: TierId;
   /** Sections across this tier in this stand. Overrides the stand's and the zone's count. */
   sections?: number;
+  /**
+   * Real block names for this tier in this stand, left to right as seen sitting in the stand
+   * facing the pitch. Sets the section count and replaces the generated numbers. No hyphens.
+   */
+  blocks?: string[];
+  /** Row labels in this stand, if they differ from the tier's. */
+  rowLabels?: RowLabels;
 }
 
 /**
@@ -118,12 +132,14 @@ export type SeatTuple = [n: number, x: number, y: number, z: number, yaw: number
 
 export interface Row {
   n: number;
+  /** Row name as printed on tickets, e.g. "F". Omitted when it is just the number. */
+  label?: string;
   /** Ordered left-to-right as seen when facing the pitch. */
   seats: SeatTuple[];
 }
 
 export interface Section {
-  /** Section label, e.g. "214". */
+  /** Section label: the block name if the config gives one, else a number such as "214". */
   id: string;
   tier: TierId;
   zone: Zone;

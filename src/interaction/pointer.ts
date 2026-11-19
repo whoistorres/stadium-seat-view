@@ -114,7 +114,7 @@ export class PointerInput {
     const reason = this.blocked(ref);
     const verb = this.store.get().mode === 'seat' ? 'Click to move to this seat' : 'Click to view from this seat';
     return (
-      `<strong>Section ${escapeHtml(n.section)} · Row ${n.row} · Seat ${n.seat}</strong>` +
+      `<strong>Section ${escapeHtml(n.section)} · Row ${escapeHtml(n.row)} · Seat ${n.seat}</strong>` +
       this.categoryLine(ref.section) +
       `<span class="${this.tickets.isSold(ref) ? 'status-sold' : 'status-free'}">${this.tickets.isSold(ref) ? '✕ Sold' : '✓ Available'}</span>` +
       `<span class="muted">${escapeHtml(reason ?? verb)}</span>`

@@ -94,7 +94,7 @@ src/
 | `bowl.aisleWidth` | Minimum stair aisle between sections |
 | `bowl.seatInset` | Seat position measured back from the front edge of its step |
 | `bowl.sectionsPerZone` | Sections per sideline, end and corner, per tier |
-| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front), `lift` (height above the tier below), `parapet` |
+| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front), `lift` (height above the tier below), `parapet`, `rowLabels` (optional: `'numbers'` by default, `'letters'` for A–Z then AA, BB…, or an array with every row's label, e.g. to skip I and O) |
 | `roof` | `enabled`, `clearance` above the top row, `cantilever` reach, `slopeDeg` (negative = falls towards the pitch), `thickness` |
 | `shellDepth` | Concourse/facade depth behind the top tier |
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
@@ -115,14 +115,20 @@ stands: {
 | Field | Meaning |
 |---|---|
 | `name` | Display name, e.g. "Milburn Stand". The UI shows it instead of "Sideline, North" |
-| `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet` and `sections`. Omit for all tiers unchanged |
+| `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet`, `rowLabels` and `sections`, or name its real blocks with `blocks`. Omit for all tiers unchanged |
 | `sections` | Sections per tier in this stand (a tier's own `sections` wins) |
 | `roof` | This stand's roof, or `null` for none |
 | `shellDepth` | Concourse/facade depth behind this stand |
 | `runoff` | `N`, `S`, `E`, `W` only: gap from the touchline or goal line to this stand. Different values on opposite sides move the bowl off-centre |
 | `corner` | `NE`, `NW`, `SE`, `SW` only: `'round'` or `'square'` for this corner, overriding `bowl.corners` |
 
-Section numbers still run on within each tier, going round the bowl from the south side and skipping stands that don't have that tier. Stands with the same tier settings share one cross-section and join seamlessly. Where neighbouring stands differ, or one is missing, each stand's end is closed off with an end wall, and the same goes for roofs.
+**Real block names.** Give a stand's tier a `blocks` list to use the venue's own block names instead of numbers, left to right as seen sitting in that stand facing the pitch. The list sets the section count; in a square corner the first half goes on the leg next to the previous stand. Names must be unique across the stadium and contain no spaces or hyphens (they become part of the seat ID):
+
+```ts
+E: { tiers: [{ id: 1, blocks: ['LSL1L', 'LSL1K', 'LSL1J'], rowLabels: 'letters' }, { id: 2 }] },
+```
+
+Section numbers still run on within each tier, going round the bowl from the south side and skipping stands that don't have that tier and sections that have a block name. Stands with the same tier settings share one cross-section and join seamlessly. Where neighbouring stands differ, or one is missing, each stand's end is closed off with an end wall, and the same goes for roofs.
 
 **Choosing a config.** [`src/config/index.ts`](src/config/index.ts) lists named configs. Start the dev server with `STADIUM_CONFIG=<name>` to build one of them, for example the example ground with four different stands:
 
@@ -158,9 +164,10 @@ Rendering code never reads the config, only the generated JSON, so changing valu
     stands: [StandShell | null, ...]              // 8 entries: S, SE, E, NE, N, NW, W, SW; null = no stand
   } | null,
   sections: [{
-    id: "214", tier: 2, zone: "sideline" | "end" | "corner", side: "N" | "NE" | ...,
+    id: "214",                                    // number, or the real block name, e.g. "GSQ"
+    tier: 2, zone: "sideline" | "end" | "corner", side: "N" | "NE" | ...,
     rowDepth: 0.85,
-    rows: [{ n: 12, seats: [[seatNumber, x, y, z, yaw], ...] }]
+    rows: [{ n: 12, label?: "M", seats: [[seatNumber, x, y, z, yaw], ...] }]  // label: row name on tickets
   }]
 }
 ```
@@ -185,7 +192,7 @@ Version 1 files, which had a single `shell` cross-section for the whole bowl, st
 
 ### Seat IDs
 
-`S-{section}-R{row:2}-N{seat:2}`, e.g. `S-214-R12-N07`. IDs are derived from the section label, row number and seat number in the data, never from array positions, so they stay stable when the data is regenerated with the same config.
+`S-{section}-R{row:2}-N{seat:2}`, e.g. `S-214-R12-N07`. IDs are derived from the section label, row number (1 = front row, even when the row is labelled with a letter) and seat number in the data, never from array positions, so they stay stable when the data is regenerated with the same config.
 
 ## Plugging in a real stadium
 

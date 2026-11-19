@@ -78,7 +78,7 @@ export function mountOverlay(root: HTMLElement, stadium: Stadium, store: AppStor
       chip.hidden = s.mode !== 'seat' || !s.selectedSeat;
       if (s.selectedSeat) {
         const n = seatNumbers(stadium, s.selectedSeat);
-        chip.innerHTML = `Section <b>${escapeHtml(n.section)}</b> · Row <b>${n.row}</b> · Seat <b>${n.seat}</b>`;
+        chip.innerHTML = `Section <b>${escapeHtml(n.section)}</b> · Row <b>${escapeHtml(n.row)}</b> · Seat <b>${n.seat}</b>`;
         if (s.mode === 'seat') hint.textContent = HINTS.seat;
       }
     }

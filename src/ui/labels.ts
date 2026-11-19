@@ -1,5 +1,5 @@
 import type { SeatRef, Stadium } from '../data/loadData';
-import type { Section, Side, TierId, Zone } from '../data/types';
+import type { Row, Section, Side, TierId, Zone } from '../data/types';
 
 export const zoneLabel: Record<Zone, string> = { sideline: 'Sideline', end: 'Behind the goal', corner: 'Corner' };
 
@@ -27,9 +27,15 @@ export function sectionArea(stadium: Stadium, s: Section): string {
   return `${tierLabel(stadium, s.tier)} · ${standLabel(s)}`;
 }
 
-export function seatNumbers(stadium: Stadium, ref: SeatRef): { section: string; row: number; seat: number } {
+/** Row name for display: its ticket label if it has one, else its number. */
+export function rowName(row: Row): string {
+  return row.label ?? String(row.n);
+}
+
+export function seatNumbers(stadium: Stadium, ref: SeatRef): { section: string; row: string; seat: number } {
   const s = stadium.sections[ref.section];
-  return { section: s.id, row: s.rows[ref.row].n, seat: s.rows[ref.row].seats[ref.seat][0] };
+  const row = s.rows[ref.row];
+  return { section: s.id, row: rowName(row), seat: row.seats[ref.seat][0] };
 }
 
 export function escapeHtml(text: string): string {
