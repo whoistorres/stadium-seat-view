@@ -37,7 +37,7 @@ export interface RoofConfig {
   clearance: number;
   /** How far the roof reaches in over the seats from the back wall. */
   cantilever: number;
-  /** Upward slope towards the pitch, degrees. */
+  /** Upward slope towards the pitch, degrees. Negative = the roof falls towards the pitch. */
   slopeDeg: number;
   thickness: number;
 }

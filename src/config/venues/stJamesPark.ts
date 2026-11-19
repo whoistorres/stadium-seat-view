@@ -14,8 +14,9 @@ import type { RoofConfig, StadiumConfig, StandConfig, TierConfig } from '../../d
  *   5 m used so the advertising boards fit.
  *   Depths, front row to outer wall: Milburn ~72 m, Leazes ~73 m, Gallowgate ~49 m, East ~29 m.
  * - Layout: Milburn Stand (west) and Leazes End (north) are two-tiered, with the upper tier
- *   wrapping their shared corner under one big cantilever roof. Gallowgate End (south) and
- *   East Stand are single-tiered; the other three corners are filled to the same height.
+ *   wrapping their shared corner under one big cantilever roof. East Stand is single-tiered;
+ *   Gallowgate End (south) is one bank split by a walkway (see gallowgateProfile). The other
+ *   three corners are filled to the same height as the stand next to them.
  * - Capacity: about 52,300 in published figures; rows here are fitted to land close to it.
  *   The generator's corners are arcs, not the real square-filled corners, so corner seats
  *   are fewer and the stands carry the difference.
@@ -31,8 +32,9 @@ const tiers: TierConfig[] = [
   // minimum), capped at 35°. The tall upper tier hits that cap, so its near-touchline
   // clearance stays low (about 14–25 mm): check against real seat photos before relying on it.
   { id: 1, name: 'Lower', firstSection: 101, rows: 32, rowDepth: 0.8, rakeDeg: 24, cValue: 60, setback: 0, lift: 1.0, parapet: 0.4 },
-  // Upper tier ("Level 7") sits above a level of executive boxes.
-  { id: 2, name: 'Upper', firstSection: 201, rows: 46, rowDepth: 0.8, rakeDeg: 30, cValue: 60, setback: 3, lift: 6.5, parapet: 1.0 },
+  // Upper tier ("Level 7") sits above a level of executive boxes. Lift checked against a fan
+  // photo from Leazes Level 7 row F: eye about 27-28 m above the pitch.
+  { id: 2, name: 'Upper', firstSection: 201, rows: 46, rowDepth: 0.8, rakeDeg: 30, cValue: 60, setback: 3, lift: 9.0, parapet: 1.0 },
 ];
 
 const bigRoof: RoofConfig = { enabled: true, clearance: 6, cantilever: 50, slopeDeg: 3, thickness: 1.2 };
@@ -49,7 +51,22 @@ const tall = (name: string, sections: number): StandConfig => ({
 
 /** Single-tier stands; a corner gets the same cross-section as the stand it continues. */
 const eastProfile = { tiers: [{ id: 1, rows: 28 }], roof: { ...lowRoof, cantilever: 22 }, shellDepth: 6 };
-const gallowgateProfile = { tiers: [{ id: 1, rows: 52 }], roof: { ...lowRoof, cantilever: 32 }, shellDepth: 7 };
+/*
+ * Gallowgate End, checked against two fan photos:
+ * - Its seating is split by a walkway, with row lettering restarting at A behind a balcony
+ *   wall. A row A seat sits about 7 m up and 12-17 m back from the front row, so the
+ *   lower part is short and shallow. It is modelled as tier 1 (front) plus tier 2 (behind the wall).
+ * - From Leazes Level 7 you look down on top of its roof, which falls towards the pitch: about
+ *   18 m at the front edge and below 28 m at the back.
+ */
+const gallowgateProfile = {
+  tiers: [
+    { id: 1, rows: 14, rakeDeg: 21, cValue: 0 },
+    { id: 2, rows: 38, rakeDeg: 24, cValue: 0, setback: 1.2, lift: 1.0, parapet: 1.1 },
+  ],
+  roof: { ...lowRoof, clearance: 3.5, cantilever: 30, slopeDeg: -8 },
+  shellDepth: 7,
+};
 
 export const stJamesPark: StadiumConfig = {
   name: "St James' Park (approximate)",

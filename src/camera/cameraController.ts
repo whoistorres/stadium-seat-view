@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { offsetAt } from '../data/bowlPath';
+import { offsetAt, PIECE_SIDES } from '../data/bowlPath';
 import { clearanceHeightAt } from '../data/envelope';
 import type { SeatRef, Stadium } from '../data/loadData';
 
@@ -337,8 +337,16 @@ export class CameraController {
     const t = this.stadium.tuple(ref);
     const [ex, ey, ez] = this.stadium.eye(ref);
     const shell = this.stadium.data.shell;
-    const reach = shell ? Math.max(6, offsetAt(shell.shape, ex, ez) + 8) : 12;
-    return new THREE.Vector3(ex + Math.sin(t[4]) * reach, ey + 1.5, ez + Math.cos(t[4]) * reach);
+    const d = shell ? offsetAt(shell.shape, ex, ez) : 0;
+    const reach = shell ? Math.max(6, d + 8) : 12;
+    let y = ey + 1.5;
+    // Under a roof that falls towards the pitch, a level last leg would pass through the roof's
+    // front edge: come in low enough that the straight line to the eye stays 1 m beneath it.
+    const roof = shell?.stands[PIECE_SIDES.indexOf(this.stadium.data.sections[ref.section].side)]?.roof;
+    if (roof && d > roof.innerD && d <= roof.outerD) {
+      y = Math.min(y, ey + ((roof.innerY - 1 - ey) * reach) / (d - roof.innerD));
+    }
+    return new THREE.Vector3(ex + Math.sin(t[4]) * reach, y, ez + Math.cos(t[4]) * reach);
   }
 
   private lookAngles(eye: THREE.Vector3): { yaw: number; pitch: number } {
