@@ -8,16 +8,19 @@ For day-to-day use, see [README.md](README.md) (run instructions, config referen
 
 ## 1. Summary
 
-Stadium Seat View is a web app that lets football fans preview the view from any seat in a stadium before buying a ticket. It renders a procedurally generated three-tier stadium in 3D in the browser. Fans can orbit the bowl, click a section, click a seat and fly into a first-person view from that seat. Prices, availability and filters come from a mock ticketing data file.
+Stadium Seat View is a web app that lets football fans preview the view from any seat in a stadium before buying a ticket. It renders a procedurally generated stadium in 3D in the browser. Fans can orbit the bowl, click a section, click a seat and fly into a first-person view from that seat. Prices, availability and filters come from a mock ticketing data file.
+
+The generator is driven by a config file per venue. Each stand can have its own tiers, rows, roof and corner shape, and real block names. Besides the generic default stadium, the project includes an approximate model of St James' Park, Newcastle, fitted to public map data and checked against fan seat photos.
 
 | | |
 |---|---|
 | Stack | Vite 8, TypeScript 7, Three.js 0.187. Plain DOM/CSS UI. No backend, no other runtime libraries |
-| Size | About 3,900 lines of TypeScript plus one stylesheet |
-| Stadium | 120 sections (101–140, 201–240, 301–340), 54,448 seats, cantilevered roof |
+| Size | About 4,800 lines of TypeScript plus one stylesheet |
+| Default stadium | 120 sections (101–140, 201–240, 301–340), 54,448 seats, cantilevered roof |
+| Venues | `default`, `four-stands` (example of mixed stands), `st-james-park` (approximate, 52,162 seats) |
 | Tickets | 4 price categories, 34,963 seats sold (64%), deterministic mock data |
 | Output | Static site (`dist/`), about 670 KB of JavaScript (174 KB compressed) plus 1.9 MB of JSON data |
-| Location | `C:\Users\berni\stadium project` (not yet a git repository) |
+| Repository | https://github.com/whoistorres/stadium-seat-view (MIT licence; the St James' Park config is under the ODbL, see that file) |
 
 ![Overview](docs/screenshots/orbit.jpg)
 
@@ -32,9 +35,11 @@ Stadium Seat View is a web app that lets football fans preview the view from any
 - 60 fps on High on an Intel Iris Xe at window sizes up to 2560×1440, with adaptive resolution on large windows
 - Keyboard-only use, accessible names and WCAG AA colour contrast checked; issues found were fixed
 - README, verification report and screenshots
+- Config-driven venues: per-stand overrides, any number of tiers, round or square corners, overhanging tiers, real block names and lettered rows
+- St James' Park modelled approximately and checked against fan seat photos (see section 8)
 
 **Known gaps**
-- The stadium is generic: no real venue has been modelled
+- St James' Park is approximate: row counts, rakes, roof sizes and the upper-tier overhang are fitted estimates, and its sections still use generated numbers until the club's block map is in
 - Ticketing is mock data with no real ticketing-system integration
 - A full-screen 4K window on this laptop's GPU reaches about 53 fps on High in upper-tier views (Low holds 60)
 - Not tested on:
@@ -57,7 +62,7 @@ npm run build        # type-check + static build into dist/
 npm run preview      # serve dist/
 ```
 
-Starting the dev server or a build regenerates `public/data/stadium.json` and `public/data/tickets.json` from [`src/config/stadiumConfig.ts`](src/config/stadiumConfig.ts). Set `STADIUM_DATA=external` to keep hand-supplied data instead.
+Starting the dev server or a build regenerates `public/data/stadium.json` and `public/data/tickets.json` from a config. `STADIUM_CONFIG=<name>` picks one from [`src/config/index.ts`](src/config/index.ts) (default: [`src/config/stadiumConfig.ts`](src/config/stadiumConfig.ts)); in PowerShell, `$env:STADIUM_CONFIG='st-james-park'; npm run dev`. Restart without it (or run `npm run build`) to go back to the default data. Set `STADIUM_DATA=external` to keep hand-supplied data instead.
 
 A specific seat can be linked directly, for example `http://localhost:5173/#S-324-R22-N09`.
 
@@ -79,6 +84,14 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Roof:** a cantilevered ring reaching 30 m in over the seats, with girders and a row of floodlight fixtures. It clips the top of the view from upper rows.
 - **Building:** generic walls between tiers, walkways, a back wall and an outer facade.
 - **Seats:** 54,448 of them, drawn as one instanced mesh per section. Each chair is 10 triangles up close and 4 far away.
+
+### Venue configs
+- **Per-stand overrides:** the bowl has eight pieces (four sides, four corners). Each can have its own tiers and rows, sections, roof (or none), concourse depth and distance from the pitch, or be left empty.
+- **Any number of tiers**, numbered front to back.
+- **Corners:** round (rows curve round) or square (rows run straight on and meet at the diagonal, as in a filled-in corner).
+- **Overhanging tiers:** a negative `setback` hangs a tier out over the back rows of the tier below, with a flat underside and a headroom check.
+- **Real names:** `blocks` gives a stand's real block names in place of numbers; `rowLabels` gives lettered rows (A–Z, then AA, BB…) or any list.
+- **St James' Park:** Milburn Stand and Leazes End two-tiered with the upper tier wrapping their corner under one big roof, East Stand single-tiered, Gallowgate End split by a walkway, all corners filled square. Pitch gaps and stand depths come from the OpenStreetMap building outline.
 
 ### Camera
 - **Orbit mode:**
@@ -165,12 +178,15 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 ```
 plugins/stadiumDataPlugin.ts   Vite plugin: config -> public/data/*.json at startup
 src/
-  config/stadiumConfig.ts      All stadium dimensions (only file to edit for a different bowl)
+  config/index.ts              Named configs that STADIUM_CONFIG picks from
+  config/stadiumConfig.ts      Default generic stadium
+  config/examples/, venues/    Four-stands example; St James' Park (approximate)
   data/                        No three.js in the generators
     types.ts                   StadiumConfig, StadiumData, TicketData
     generateStadium.ts         config -> StadiumData (pure, deterministic; sightline-designed rake)
     generateTickets.ts         StadiumData -> TicketData (seeded mock)
-    bowlPath.ts                rounded-rectangle bowl geometry, shared by generator and renderer
+    bowlPath.ts                bowl geometry (round or square corners), shared by generator and renderer
+    overhang.ts                where a tier hangs over the one below; shared by generator, renderer, camera
     envelope.ts                stand and roof heights for keeping the camera outside the building
     loadData.ts                load + validate stadium.json; seat indexing; neighbour search
     tickets.ts                 load + validate tickets.json; availability and filter lookups
@@ -185,7 +201,7 @@ src/
 ### Data flow
 
 ```
-stadiumConfig.ts --(Vite plugin at startup)--> stadium.json + tickets.json
+config (STADIUM_CONFIG) --(Vite plugin at startup)--> stadium.json + tickets.json
                                                        |
                                      fetched + validated at page load
                                                        |
@@ -217,16 +233,17 @@ The renderer reads only the JSON, never the config. Swapping in a real stadium i
 
 Full reference in [README.md](README.md#stadium-config). In short:
 
-- **`stadiumConfig.ts`:**
+- **Config (`StadiumConfig`):**
   - pitch size and run-off distances
-  - corner radius, seat spacing, aisle width
+  - corner radius and corner shape (round or square), seat spacing, aisle width
   - sections per zone
-  - per tier: rows, row depth, minimum rake, sightline target (`cValue`), setback, lift, front-wall height
+  - per tier: rows, row depth, minimum rake, sightline target (`cValue`), setback (negative = overhang), lift, front-wall height, row labels
   - roof and facade dimensions
   - eye height
+  - per stand (`stands`): name, its own tiers and their changes, sections or real `blocks`, roof, concourse depth, run-off, corner shape
 - **`stadium.json`:** pitch size, seat-spacing hints, an optional generic `shell` (the walls and roof), and `sections[]`, each with rows of `[seat number, x, y, z, yaw]`. Coordinates: origin at the centre spot, X along the pitch, Z across, Y up, metres.
 - **`tickets.json`:** the price categories, a category per section, and the sold seat keys per section.
-- **Seat IDs:** `S-{section}-R{row:2}-N{seat:2}`.
+- **Seat IDs:** `S-{section}-R{row:2}-N{seat:2}`. The section is the block name where the config gives one (`S-LSL1C-R06-N11`); the row is always its number, even when it is labelled with a letter.
 
 The README includes a tested CSV → `stadium.json` converter: it round-tripped all 54,448 seats identically.
 
@@ -245,6 +262,17 @@ The work followed an agreed plan in six phases, stopping after each for review.
 | 5. Realism, crowd, mobile | Roof, sky, shadows, day/evening, crowd, Low/High, loading steps, mobile bottom sheet | Loading hung in background tabs; a shadow type removed in three 0.187; heads looked like big brown cubes; building exterior looked sunlit at night; mobile labels showing; narrow pitch view in portrait |
 | 6. README and verification | README, verification report, screenshots, benchmark helper | See section 8: poor lower-tier sightlines, front row too close to the corner flag, slow frame rate on large windows, keyboard focus and contrast issues |
 
+After the six phases the project went under git and onto GitHub, and work moved to real venues:
+
+| Date | Commit | Delivered |
+|---|---|---|
+| 2026-11-13 | Per-stand config; any number of tiers; MIT licence | Each of the eight bowl pieces configurable; tiers no longer fixed at three |
+| 2026-11-13 | St James' Park venue | Approximate model from the OpenStreetMap outline and published facts |
+| 2026-11-18 | Fit to fan seat photos | Camera fitted to pitch markings in fan photos; Level 7 raised to match a row F photo, Gallowgate split by its walkway, Gallowgate roof made to fall towards the pitch (and seat flights kept under such roofs) |
+| 2026-11-18 | Square corners | Filled-in corners; corner seat flights aim at the corner's centre so they never cross the next stand |
+| 2026-11-18 | Block names and lettered rows | Real block names per stand and tier; row letters shown everywhere in the UI |
+| 2026-11-20 | Overhanging tiers | Negative setback with underside, headroom check and camera handling; St James' Park upper tier given an estimated 4 m overhang |
+
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
 ---
@@ -261,6 +289,15 @@ Mid-project the files moved from a temporary workspace into `C:\Users\berni\stad
 - 240 animated flights, 11,223 frames checked against the stands, roof and concourse: 0 violations.
 - 96 tests forcing the orbit camera low into the building: 0 violations.
 - Limit: these tests use a simplified model of the building, not the actual triangles.
+
+### St James' Park
+- **Photo fits:** camera position and angles fitted to pitch-marking pixels in fan photos.
+  - Leazes Level 7 row F: eye about 27–28 m above the pitch; model 27.94 m.
+  - Gallowgate roof front edge: within 1 px of the photo.
+  - Gallowgate block GS-Q row A: fits a model seat in the Gallowgate–Milburn corner to 3.6 px (27.9 px before the square corners).
+- **Capacity:** model 52,162; published about 52,300. The model has no executive box levels or media seats, so the close match is partly luck.
+- **Camera flights:** square corners 0 hits in 1,004 flights; overhang 0 hits in 930 flights across every section, plus 552 flights from the rows under a deliberately low overhang. Every frame-to-frame segment is raycast against the real triangles.
+- **Not checkable yet:** the size of the upper-tier overhang (no photo or plan shows it), the real block layout, and the East Stand and Milburn lower tier.
 
 ### Performance (Intel Iris Xe, 60 Hz, Chromium, visible window)
 
@@ -300,12 +337,13 @@ Early measurements taken while the browser pane was hidden were discarded: the b
 ## 9. Known limitations
 
 **Model**
-- A generic rounded-rectangle bowl. Missing:
+- A rectangle with round or square corners; each stand is one straight piece. Missing:
   - tunnel entrances, stairs and handrails
   - scoreboards and corner gaps
   - dugouts and a players' tunnel
 - Rows have constant depth.
 - Sightline checks assume everyone's eye is 1.2 m above their floor and aim at the nearest point of the pitch. Tall people and standing fans are not modelled.
+- **St James' Park:** the box levels between its tiers are not modelled, the overhang is an estimate, sections use generated numbers until the club's block map is in, and seat numbers run 1 to n per block (real tickets suggest they run across a whole stand).
 - With `shell: null` (a real venue's own building model), the orbit camera no longer has anything stopping it entering the building. That needs reworking for real venues.
 
 **Visuals**
@@ -371,8 +409,14 @@ rather than selling a standalone viewer to top clubs.
 
 ## 11. Suggested next steps
 
+**Current roadmap**
+1. St James' Park block names from the club's official block map (the naming feature is built).
+2. More photo checks: East Stand and Milburn lower tier.
+3. Sightline targets tuned per stand, if the photos call for it.
+4. A recognisable outside of the stadium, generated from the config and aimed at the overview: cladding, roof trusses and stand heights in flat colours, on a simple paved apron.
+
 **To make it a product**
-1. Model one real stadium end to end, from a CAD/CSV export or a laser scan, and compare the seat views with photos taken from real seats.
+1. Model one real stadium end to end, from a CAD/CSV export or a laser scan, and compare the seat views with photos taken from real seats. (St James' Park is a first step from public data.)
 2. Build an adapter for one ticketing platform's API: live availability, holds and a hand-off to checkout.
 3. Rework camera clearance so it uses the real building model instead of the generic shell.
 4. Test on real phones (mid-range Android, iPhone) and in Safari and Firefox. Tune Low for phones.
@@ -384,7 +428,6 @@ rather than selling a standalone viewer to top clubs.
 - Aim each seat's view at the nearest part of the pitch, with an option for the centre spot.
 - Real stairs, tunnel entrances, a scoreboard and dugouts.
 - Higher-refresh-rate support in adaptive resolution (aim for the display's own rate).
-- Put the project under version control (`git init`).
 
 ---
 
@@ -397,7 +440,10 @@ rather than selling a standalone viewer to top clubs.
 | [BUSINESS_PLAN.md](BUSINESS_PLAN.md) | Draft plan for taking this to market, including what ticketing platforms need |
 | [docs/VERIFICATION.md](docs/VERIFICATION.md) | Full test data: geometry, flights, performance, keyboard, contrast |
 | [docs/screenshots/](docs/screenshots/) | Overview, seat views (day and evening), section view, phone layout |
-| [src/config/stadiumConfig.ts](src/config/stadiumConfig.ts) | All stadium dimensions |
+| [LICENSE](LICENSE) | MIT licence |
+| [src/config/index.ts](src/config/index.ts) | Named configs (`default`, `four-stands`, `st-james-park`) |
+| [src/config/stadiumConfig.ts](src/config/stadiumConfig.ts) | Default generic stadium |
+| [src/config/venues/stJamesPark.ts](src/config/venues/stJamesPark.ts) | St James' Park (approximate; ODbL) |
 | [plugins/stadiumDataPlugin.ts](plugins/stadiumDataPlugin.ts) | Generates the data files at startup |
 | [src/data/](src/data/) | Generators, loaders, types, seat IDs |
 | [src/scene/](src/scene/) | Everything drawn in 3D, plus quality and adaptive resolution |

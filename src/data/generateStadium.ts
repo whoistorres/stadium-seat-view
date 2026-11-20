@@ -1,4 +1,5 @@
 import { bowlPieces, pieceLength, pointOnPiece, type Piece } from './bowlPath.ts';
+import { standOverhangs } from './overhang.ts';
 import type {
   BowlShape,
   RoofConfig,
@@ -220,6 +221,27 @@ function checkRowLabels(labels: RowLabels | undefined, rows: number, where: stri
   if (new Set(labels).size !== labels.length) throw new Error(`stadiumConfig: ${where} repeats a row label in "rowLabels"`);
 }
 
+/** Clear height needed between the back row's tread and an overhanging tier's underside. */
+const MIN_HEADROOM = 2.4;
+
+/** An overhanging tier must leave headroom over the rows beneath and some of the tier open. */
+function checkOverhangs(tiers: TierLayout[], side: string): void {
+  for (const o of standOverhangs(tiers)) {
+    const below = tiers[o.below];
+    const upper = tiers[o.below + 1];
+    if (o.innerD <= below.frontD) {
+      throw new Error(`stadiumConfig: stand ${side}, tier ${upper.id} overhangs all of tier ${below.id}; make its "setback" less negative`);
+    }
+    const clear = o.y - below.topY;
+    if (clear < MIN_HEADROOM) {
+      throw new Error(
+        `stadiumConfig: stand ${side}, tier ${upper.id} hangs over tier ${below.id} with only ${clear.toFixed(1)} m ` +
+          `above its back row (needs ${MIN_HEADROOM} m); raise its "lift" by ${(MIN_HEADROOM - clear + 0.05).toFixed(1)} m or more`,
+      );
+    }
+  }
+}
+
 /** Label of row k (0 = front), or undefined when rows are plain numbers. */
 export function rowLabel(labels: RowLabels | undefined, k: number): string | undefined {
   if (Array.isArray(labels)) return labels[k];
@@ -244,6 +266,8 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
     if (!cache.has(key)) cache.set(key, tierLayouts(cfg, st.tiers));
     return cache.get(key)!;
   });
+
+  layouts.forEach((ls, pi) => ls && checkOverhangs(ls, pieces[pi].side));
 
   // Tier by tier, then round the bowl: section numbers run on within a tier and skip
   // pieces that do not have that tier, and sections that have a block name.

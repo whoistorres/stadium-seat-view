@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { bowlPieces } from '../data/bowlPath';
+import { OVERHANG_SLAB, overhangs, WALL_THICKNESS } from '../data/overhang';
 import type { SeatTuple, ShellSpec, StadiumData, StandShell } from '../data/types';
 import { pieceBand, pieceCap, QuadBuilder, type RingEdge, type V3 } from './geo';
 
 const TREAD: V3 = [0.6, 0.61, 0.63];
 const RISER: V3 = [0.45, 0.46, 0.48];
-const WALL_THICKNESS = 0.2;
 
 function angleDiff(a: number, b: number): number {
   let d = a - b;
@@ -99,10 +99,17 @@ function standOutline(stand: StandShell): Array<[number, number]> {
   const pts: Array<[number, number]> = [];
   stand.tiers.forEach((t, i) => {
     const prev = i > 0 ? stand.tiers[i - 1] : null;
-    const baseY = prev ? prev.topY : 0;
-    const wallD = Math.max(prev ? prev.backD : -Infinity, t.frontD - WALL_THICKNESS);
     const parapetY = t.frontY + t.parapet;
-    pts.push([wallD, baseY], [wallD, parapetY], [t.frontD, parapetY]);
+    if (prev && overhangs(stand.tiers, i)) {
+      // Up the lower tier's back wall, forward along the underside, up the front wall.
+      const wallD = t.frontD - WALL_THICKNESS;
+      const soffitY = t.frontY - OVERHANG_SLAB;
+      pts.push([prev.backD, soffitY], [wallD, soffitY], [wallD, parapetY], [t.frontD, parapetY]);
+    } else {
+      const baseY = prev ? prev.topY : 0;
+      const wallD = Math.max(prev ? prev.backD : -Infinity, t.frontD - WALL_THICKNESS);
+      pts.push([wallD, baseY], [wallD, parapetY], [t.frontD, parapetY]);
+    }
     const rows = Math.round((t.backD - t.frontD) / t.rowDepth);
     for (let k = 0; k < rows; k++) {
       const y = t.rowY?.[k] ?? t.frontY + k * t.rise;
@@ -128,6 +135,7 @@ export function buildShell(shell: ShellSpec): THREE.Group {
   const walls: THREE.BufferGeometry[] = [];
   const floors: THREE.BufferGeometry[] = [];
   const facade: THREE.BufferGeometry[] = [];
+  const soffits: THREE.BufferGeometry[] = [];
 
   pieces.forEach((piece, pi) => {
     const stand = stands[pi];
@@ -136,13 +144,21 @@ export function buildShell(shell: ShellSpec): THREE.Group {
     const band = (a: RingEdge, b: RingEdge) => pieceBand(shape, piece, a, b);
 
     tiers.forEach((tier, i) => {
-      const baseY = i === 0 ? 0 : tiers[i - 1].topY;
+      const prev = i > 0 ? tiers[i - 1] : null;
+      const over = overhangs(tiers, i);
+      // An overhanging tier's front wall hangs down to the flat underside over the rows below.
+      const baseY = !prev ? 0 : over ? tier.frontY - OVERHANG_SLAB : prev.topY;
       const topY = tier.frontY + tier.parapet;
       const wallD = tier.frontD - WALL_THICKNESS;
       walls.push(band({ d: wallD, y: baseY }, { d: wallD, y: topY }));
       walls.push(band({ d: wallD, y: topY }, { d: tier.frontD, y: topY }));
       walls.push(band({ d: tier.frontD, y: topY }, { d: tier.frontD, y: tier.frontY }));
-      if (i > 0) floors.push(band({ d: tiers[i - 1].backD, y: baseY }, { d: wallD, y: baseY }));
+      if (prev && over) {
+        soffits.push(band({ d: prev.backD, y: baseY }, { d: wallD, y: baseY }));
+        soffits.push(band({ d: prev.backD, y: prev.topY }, { d: prev.backD, y: baseY }));
+      } else if (prev) {
+        floors.push(band({ d: prev.backD, y: baseY }, { d: wallD, y: baseY }));
+      }
     });
 
     const top = tiers[tiers.length - 1];
@@ -176,5 +192,7 @@ export function buildShell(shell: ShellSpec): THREE.Group {
   add(walls, new THREE.MeshStandardMaterial({ color: 0x1d2a3a, roughness: 0.7 }), 'tier-walls', true);
   add(floors, new THREE.MeshStandardMaterial({ color: 0x8b8d90, roughness: 0.95 }), 'walkways', false);
   add(facade, new THREE.MeshStandardMaterial({ color: 0xb9bec6, roughness: 0.85, side: THREE.DoubleSide }), 'facade', true);
+  // Underside of overhanging tiers and the back wall beneath: a lighter ceiling over the rows.
+  add(soffits, new THREE.MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.9 }), 'overhangs', true);
   return group;
 }

@@ -17,8 +17,9 @@ import type { RoofConfig, StadiumConfig, StandConfig, TierConfig } from '../../d
  *   wrapping their shared corner under one big cantilever roof. East Stand is single-tiered;
  *   Gallowgate End (south) is one bank split by a walkway (see gallowgateProfile). The other
  *   three corners are filled to the same height as the stand next to them.
- * - Capacity: about 52,300 in published figures. Square corners and 0.5 m seats give
- *   about 53,400; the model has no executive boxes, media seats or wide stair landings.
+ * - Capacity: about 52,300 in published figures; the model has about 52,200 (square corners,
+ *   0.5 m seats). It has no executive box levels, media seats or wide stair landings, so the
+ *   close match is partly luck.
  * - Section numbers (101..., 201...) are generated, NOT the club's real block numbers.
  *   Row counts, rakes and roof sizes are fitted estimates, not survey data.
  *
@@ -31,21 +32,26 @@ const tiers: TierConfig[] = [
   // minimum), capped at 35°. The tall upper tier hits that cap, so its near-touchline
   // clearance stays low (about 14–25 mm): check against real seat photos before relying on it.
   { id: 1, name: 'Lower', firstSection: 101, rows: 32, rowDepth: 0.8, rakeDeg: 24, cValue: 60, setback: 0, lift: 1.0, parapet: 0.4 },
-  // Upper tier ("Level 7") sits above a level of executive boxes. Lift checked against a fan
-  // photo from Leazes Level 7 row F: eye about 27-28 m above the pitch.
-  { id: 2, name: 'Upper', firstSection: 201, rows: 46, rowDepth: 0.8, rakeDeg: 30, cValue: 60, setback: 3, lift: 9.0, parapet: 1.0 },
+  // Upper tier ("Level 7") sits above the executive box levels and hangs out over the back of
+  // the lower tier. Lift checked against a fan photo from Leazes Level 7 row F: eye about
+  // 27-28 m above the pitch. The 4 m overhang is an estimate: no photo or plan shows it yet.
+  { id: 2, name: 'Upper', firstSection: 201, rows: 46, rowDepth: 0.8, rakeDeg: 30, cValue: 60, setback: -4, lift: 9.0, parapet: 1.0 },
 ];
 
-const bigRoof: RoofConfig = { enabled: true, clearance: 6, cantilever: 50, slopeDeg: 3, thickness: 1.2 };
+const bigRoof: RoofConfig = { enabled: true, clearance: 6, cantilever: 43, slopeDeg: 3, thickness: 1.2 };
 const lowRoof: RoofConfig = { enabled: true, clearance: 5, cantilever: 24, slopeDeg: 4, thickness: 0.8 };
 
-/** Milburn, Leazes and their shared corner: same cross-section so they join seamlessly. */
+/**
+ * Milburn, Leazes and their shared corner: same cross-section so they join seamlessly. The
+ * deep concourse keeps the outer wall at the OSM depth (about 72 m) now the upper tier
+ * starts further forward.
+ */
 const tall = (name: string, sections: number): StandConfig => ({
   name,
   tiers: [{ id: 1 }, { id: 2 }],
   sections,
   roof: bigRoof,
-  shellDepth: 7,
+  shellDepth: 14,
 });
 
 /** Single-tier stands; a corner gets the same cross-section as the stand it continues. */

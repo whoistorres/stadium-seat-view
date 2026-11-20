@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { bowlPieces, offsetAt, PIECE_SIDES } from '../data/bowlPath';
 import { clearanceHeightAt } from '../data/envelope';
+import { standOverhangs } from '../data/overhang';
 import type { SeatRef, Stadium } from '../data/loadData';
 
 const ORBIT_FOV = 45;
@@ -360,9 +361,16 @@ export class CameraController {
     let y = ey + 1.5;
     // Under a roof that falls towards the pitch, a level last leg would pass through the roof's
     // front edge: come in low enough that the straight line to the eye stays 1 m beneath it.
-    const roof = shell.stands[pi]?.roof;
-    if (roof && d > roof.innerD && d <= roof.outerD) {
-      y = Math.min(y, ey + ((roof.innerY - 1 - ey) * reach * perMetre) / (d - roof.innerD));
+    // Same for the front edge of a tier hanging out over this seat's tier.
+    const stand = shell.stands[pi];
+    const ceilings: Array<{ innerD: number; y: number }> = [];
+    if (stand?.roof && d <= stand.roof.outerD) ceilings.push({ innerD: stand.roof.innerD, y: stand.roof.innerY });
+    const tier = stand ? stand.tiers.findIndex((tl) => tl.id === this.stadium.data.sections[ref.section].tier) : -1;
+    for (const o of stand ? standOverhangs(stand.tiers) : []) {
+      if (o.below === tier && d <= o.outerD) ceilings.push(o);
+    }
+    for (const c of ceilings) {
+      if (d > c.innerD) y = Math.min(y, ey + ((c.y - 1 - ey) * reach * perMetre) / (d - c.innerD));
     }
     return new THREE.Vector3(ex + ux * reach, y, ez + uz * reach);
   }

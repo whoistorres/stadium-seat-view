@@ -94,7 +94,7 @@ src/
 | `bowl.aisleWidth` | Minimum stair aisle between sections |
 | `bowl.seatInset` | Seat position measured back from the front edge of its step |
 | `bowl.sectionsPerZone` | Sections per sideline, end and corner, per tier |
-| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front), `lift` (height above the tier below), `parapet`, `rowLabels` (optional: `'numbers'` by default, `'letters'` for A–Z then AA, BB…, or an array with every row's label, e.g. to skip I and O) |
+| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front; negative hangs this tier out over the back rows of the tier below, with a flat underside 1 m under its first tread that must clear the back row by 2.4 m), `lift` (height above the tier below), `parapet`, `rowLabels` (optional: `'numbers'` by default, `'letters'` for A–Z then AA, BB…, or an array with every row's label, e.g. to skip I and O) |
 | `roof` | `enabled`, `clearance` above the top row, `cantilever` reach, `slopeDeg` (negative = falls towards the pitch), `thickness` |
 | `shellDepth` | Concourse/facade depth behind the top tier |
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
