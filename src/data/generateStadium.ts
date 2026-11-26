@@ -7,6 +7,7 @@ import type {
   RoofSpec,
   Row,
   RowLabels,
+  SeatNumbering,
   SeatTuple,
   Section,
   ShellSpec,
@@ -215,6 +216,13 @@ function checkTiers(cfg: StadiumConfig): void {
     ids.add(t.id);
   }
   for (const t of cfg.tiers) checkRowLabels(t.rowLabels, t.rows, `tier ${t.id}`);
+  const checkFirst = (n: SeatNumbering | undefined, where: string) => {
+    if (n?.first !== undefined && (!Number.isInteger(n.first) || n.first < 1)) {
+      throw new Error(`stadiumConfig: ${where} "seatNumbers.first" must be a whole number of at least 1`);
+    }
+  };
+  for (const t of cfg.tiers) checkFirst(t.seatNumbers, `tier ${t.id}`);
+  for (const [side, stand] of Object.entries(cfg.stands ?? {})) for (const t of stand?.tiers ?? []) checkFirst(t.seatNumbers, `stand ${side}, tier ${t.id}`);
   for (const [side, stand] of Object.entries(cfg.stands ?? {})) {
     for (const t of stand?.tiers ?? []) {
       const where = `stand ${side}, tier ${t.id}`;
@@ -245,6 +253,20 @@ function checkRowLabels(labels: RowLabels | undefined, rows: number, where: stri
   if (!Array.isArray(labels)) return;
   if (labels.length < rows) throw new Error(`stadiumConfig: ${where} has ${rows} rows but only ${labels.length} "rowLabels"`);
   if (new Set(labels).size !== labels.length) throw new Error(`stadiumConfig: ${where} repeats a row label in "rowLabels"`);
+}
+
+/**
+ * Renumbers the seats of one tier in one stand (its sections given left to right). Seats stay
+ * in left-to-right order in the data; only their numbers change. No rule = 1, 2, 3... per block.
+ */
+function numberSeats(secs: Section[], rule: SeatNumbering | undefined): void {
+  if (!rule || secs.length === 0) return;
+  const first = rule.first ?? 1;
+  const fromRight = rule.from === 'right';
+  const groups = (k: number) => ((rule.across ?? 'block') === 'stand' ? [secs.flatMap((s) => s.rows[k].seats)] : secs.map((s) => s.rows[k].seats));
+  for (let k = 0; k < secs[0].rows.length; k++) {
+    for (const seats of groups(k)) seats.forEach((t, i) => (t[0] = first + (fromRight ? seats.length - 1 - i : i)));
+  }
 }
 
 /** Clear height needed between the back row's tread and an overhanging tier's underside. */
@@ -309,6 +331,7 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
       const layout = layouts[pi]![ti];
       const count = st.sections[ti];
       const names = st.blocks[ti];
+      const firstSection = sections.length;
       // A square corner is two straight legs; sections never wrap round the turn, so the
       // aisle between the legs' blocks runs up the diagonal. The first leg takes the odd one.
       const legs = piece.kind === 'arc' && piece.square ? [Math.ceil(count / 2), Math.floor(count / 2)] : [count];
@@ -344,6 +367,7 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
           rows,
         });
       }
+      numberSeats(sections.slice(firstSection), t.seatNumbers);
     });
   }
 

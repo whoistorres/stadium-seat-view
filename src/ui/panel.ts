@@ -5,6 +5,7 @@ import type { Actions } from '../state/actions';
 import { sameSeat, type AppState, type AppStore } from '../state/store';
 import { mountLegend } from './legend';
 import { escapeHtml, rowName, sectionArea, seatNumbers, standLabel, tierLabel } from './labels';
+import { describeView, viewNotes } from '../data/viewNotes';
 
 const option = (value: string, label: string, disabled = false) => {
   const o = document.createElement('option');
@@ -196,6 +197,9 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
         <div class="stat-row"><dt>Row</dt><dd>${escapeHtml(n.row)}</dd></div>
         <div class="stat-row"><dt>Seat</dt><dd>${n.seat}</dd></div>
         <div class="stat-row"><dt>Area</dt><dd>${escapeHtml(sectionArea(stadium, sec))}</dd></div>
+        ${describeView(viewNotes(stadium, ref))
+          .map(([label, text]) => `<div class="stat-row"><dt>${label}</dt><dd>${escapeHtml(text)}</dd></div>`)
+          .join('')}
         <div class="stat-row"><dt>Category</dt><dd><span class="swatch swatch-sm pat-${c.pattern}" style="--c:${c.color}" aria-hidden="true">${c.id}</span> ${c.id} · ${escapeHtml(c.label)}</dd></div>
         <div class="stat-row"><dt>Price</dt><dd class="price">${tickets.format(c.price)}</dd></div>
         <div class="stat-row"><dt>Status</dt><dd class="${sold ? 'status-sold' : 'status-free'}">${sold ? '✕ Sold' : '✓ Available'}</dd></div>

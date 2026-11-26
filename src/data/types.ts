@@ -34,9 +34,20 @@ export interface TierConfig {
    * then AA, BB, CC... An array gives every row's label in order, e.g. to skip I and O.
    */
   rowLabels?: RowLabels;
+  /** How seats are numbered along each row. Default: 1, 2, 3... from the left in every block. */
+  seatNumbers?: SeatNumbering;
 }
 
 export type RowLabels = 'numbers' | 'letters' | string[];
+
+export interface SeatNumbering {
+  /** 'block' (default): numbering starts again in each block. 'stand': it runs on along the stand's whole row. */
+  across?: 'block' | 'stand';
+  /** Number of the first seat. Default 1. */
+  first?: number;
+  /** Which end the first seat is at, as seen sitting in the stand facing the pitch. Default 'left'. */
+  from?: 'left' | 'right';
+}
 
 export interface RoofConfig {
   enabled: boolean;
@@ -64,6 +75,8 @@ export interface StandTier extends Partial<TierGeometry> {
   blocks?: string[];
   /** Row labels in this stand, if they differ from the tier's. */
   rowLabels?: RowLabels;
+  /** Seat numbering in this stand, if it differs from the tier's. */
+  seatNumbers?: SeatNumbering;
 }
 
 /**

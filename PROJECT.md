@@ -90,7 +90,7 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Any number of tiers**, numbered front to back.
 - **Corners:** round (rows curve round) or square (rows run straight on and meet at the diagonal, as in a filled-in corner).
 - **Overhanging tiers:** a negative `setback` hangs a tier out over the back rows of the tier below, with a flat underside and a headroom check.
-- **Real names:** `blocks` gives a stand's real block names in place of numbers; `rowLabels` gives lettered rows (A–Z, then AA, BB…) or any list.
+- **Real names:** `blocks` gives a stand's real block names in place of numbers; `rowLabels` gives lettered rows (A–Z, then AA, BB…) or any list; `seatNumbers` numbers seats across a whole stand instead of per block, from either end and from any first number.
 - **Sightlines per stand (optional):** `bowl.sightlines: 'stand'` designs each stand's rake for its own distance to the pitch, for grounds of separate stands. The default shares one distance so matching stands join seamlessly.
 - **Outside:** each stand's outer wall can be concrete, glass (curtain wall, windows lit in the evening), cladding panels or brick, drawn in flat colours for the overview, with a paved apron round the building.
 - **St James' Park:** Milburn Stand and Leazes End two-tiered with the upper tier wrapping their corner under one big roof, East Stand single-tiered, Gallowgate End split by a walkway, all corners filled square. Pitch gaps and stand depths come from the OpenStreetMap building outline. Outside: glazed Milburn/Leazes backs, brick East Stand, clad Gallowgate (chosen to read as the ground from above, not surveyed).
@@ -136,6 +136,7 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Legend and filters:** the legend doubles as the category filter. There are min/max price sliders, live counts of matching seats, a Reset button and a section-tag toggle.
 - **Sold or filtered seats** can't be selected by click, dropdown or arrow keys. Clicking one shows the reason, which also works on touch screens.
 - **Seat card:** shows the seat's details, a "View from this seat" button and a "Select seat" button. Select stores the seat in the app's state; there is no checkout.
+- **View notes:** the seat card says what limits the view, worked out from the model: sightline clearance over the head in front (or the front wall, for a front row) rated against the 60/90/120 mm guidance; whether the seat is under the roof or the tier above, and how high you can see before its edge; distance to the pitch and centre spot and eye height.
 
 ### Realism
 - **Day:** a gradient sky, distance fog, and sun shadows from the roof and stands onto the seats and pitch. Shadows are drawn once and redrawn only when lighting changes.
@@ -189,6 +190,7 @@ src/
     generateTickets.ts         StadiumData -> TicketData (seeded mock)
     bowlPath.ts                bowl geometry (round or square corners), shared by generator and renderer
     overhang.ts                where a tier hangs over the one below; shared by generator, renderer, camera
+    viewNotes.ts               per-seat view notes for the seat card: clearance, cover, distances
     envelope.ts                stand and roof heights for keeping the camera outside the building
     loadData.ts                load + validate stadium.json; seat indexing; neighbour search
     tickets.ts                 load + validate tickets.json; availability and filter lookups
@@ -275,6 +277,7 @@ After the six phases the project went under git and onto GitHub, and work moved 
 | 2026-11-18 | Block names and lettered rows | Real block names per stand and tier; row letters shown everywhere in the UI |
 | 2026-11-20 | Overhanging tiers | Negative setback with underside, headroom check and camera handling; St James' Park upper tier given an estimated 4 m overhang |
 | 2026-11-20 | Sightlines per stand; outside of the stadium | Optional per-stand rake design (used by the four-stands example; St James' Park keeps the shared design so its Milburn–Leazes wrap and photo fit hold); facade styles and a paved apron |
+| 2026-11-26 | View notes; seat numbering | Seat card explains what limits each seat's view; seats can be numbered across a whole stand, from either end, ready for the St James' Park block map |
 
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
@@ -310,6 +313,7 @@ Mid-project the files moved from a temporary workspace into `C:\Users\berni\stad
   | Gallowgate | 42 mm | 38 mm |
 
   Level 7 is at the 35° rake cap and still can't reach 60 mm: from there, the head in front hides the near touchline. Gallowgate's shallow rake comes from the photo fit. Designing Leazes for its own 7 m gap instead would lower both its tiers by 2.3 m, breaking the seamless corner join with Milburn and the Level 7 photo fit, so St James' Park keeps the shared design.
+- **View notes** (clearance over the nearest head in front, to the nearest point of the pitch, every seat): 17,255 seats below 0 mm, 13,007 at 0–60, 9,766 at 60–90, 4,967 at 90–120 and 7,167 at 120 mm or more. The negative ones are Level 7 (−78 to −261 mm, the front row worst, over its wall) and most of the Gallowgate (31 to −83 mm). The default stadium has every seat at 60 mm or more.
 - **Not checkable yet:** the size of the upper-tier overhang (no photo or plan shows it), the real block layout, and the East Stand and Milburn lower tier.
 
 ### Performance (Intel Iris Xe, 60 Hz, Chromium, visible window)
@@ -423,7 +427,7 @@ rather than selling a standalone viewer to top clubs.
 ## 11. Suggested next steps
 
 **Current roadmap**
-1. St James' Park block names from the club's official block map (the naming feature is built).
+1. St James' Park block names and seat numbers from the club's official block map (block names, lettered rows and stand-wide seat numbering are built).
 2. More photo checks: East Stand and Milburn lower tier.
 3. Optional: nearby buildings around St James' Park from OpenStreetMap, for context in the overview.
 

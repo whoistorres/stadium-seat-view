@@ -95,7 +95,7 @@ src/
 | `bowl.aisleWidth` | Minimum stair aisle between sections |
 | `bowl.seatInset` | Seat position measured back from the front edge of its step |
 | `bowl.sectionsPerZone` | Sections per sideline, end and corner, per tier |
-| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front; negative hangs this tier out over the back rows of the tier below, with a flat underside 1 m under its first tread that must clear the back row by 2.4 m), `lift` (height above the tier below), `parapet`, `rowLabels` (optional: `'numbers'` by default, `'letters'` for A–Z then AA, BB…, or an array with every row's label, e.g. to skip I and O) |
+| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front; negative hangs this tier out over the back rows of the tier below, with a flat underside 1 m under its first tread that must clear the back row by 2.4 m), `lift` (height above the tier below), `parapet`, `rowLabels` (optional: `'numbers'` by default, `'letters'` for A–Z then AA, BB…, or an array with every row's label, e.g. to skip I and O), `seatNumbers` (optional, see *Seat numbers*) |
 | `roof` | `enabled`, `clearance` above the top row, `cantilever` reach, `slopeDeg` (negative = falls towards the pitch), `thickness` |
 | `shellDepth` | Concourse/facade depth behind the top tier |
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
@@ -118,7 +118,7 @@ stands: {
 | Field | Meaning |
 |---|---|
 | `name` | Display name, e.g. "Milburn Stand". The UI shows it instead of "Sideline, North" |
-| `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet`, `rowLabels` and `sections`, or name its real blocks with `blocks`. Omit for all tiers unchanged |
+| `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet`, `rowLabels`, `seatNumbers` and `sections`, or name its real blocks with `blocks`. Omit for all tiers unchanged |
 | `sections` | Sections per tier in this stand (a tier's own `sections` wins) |
 | `roof` | This stand's roof, or `null` for none |
 | `shellDepth` | Concourse/facade depth behind this stand |
@@ -130,6 +130,18 @@ stands: {
 
 ```ts
 E: { tiers: [{ id: 1, blocks: ['LSL1L', 'LSL1K', 'LSL1J'], rowLabels: 'letters' }, { id: 2 }] },
+```
+
+**Seat numbers.** By default seats are numbered from 1 in each block, left to right as seen sitting in the stand facing the pitch. A tier's `seatNumbers` changes that, stadium-wide or for one stand:
+
+| Field | Meaning |
+|---|---|
+| `across` | `'block'` (default): numbering starts again in each block. `'stand'`: it runs on along the stand's whole row, block after block |
+| `first` | Number of the first seat (default 1) |
+| `from` | `'left'` (default) or `'right'`: which end the first seat is at, as seen sitting in the stand facing the pitch |
+
+```ts
+N: { tiers: [{ id: 1, blocks: ['A', 'B', 'C'], seatNumbers: { across: 'stand', from: 'right', first: 101 } }] },
 ```
 
 Section numbers still run on within each tier, going round the bowl from the south side and skipping stands that don't have that tier and sections that have a block name. Stands with the same tier settings share one cross-section and join seamlessly. Where neighbouring stands differ, or one is missing, each stand's end is closed off with an end wall, and the same goes for roofs.
@@ -198,7 +210,7 @@ Version 1 files, which had a single `shell` cross-section for the whole bowl, st
 
 ### Seat IDs
 
-`S-{section}-R{row:2}-N{seat:2}`, e.g. `S-214-R12-N07`. IDs are derived from the section label, row number (1 = front row, even when the row is labelled with a letter) and seat number in the data, never from array positions, so they stay stable when the data is regenerated with the same config.
+`S-{section}-R{row:2}-N{seat:2}`, e.g. `S-214-R12-N07`. IDs are derived from the section label, row number (1 = front row, even when the row is labelled with a letter) and seat number in the data (as set by `seatNumbers`), never from array positions, so they stay stable when the data is regenerated with the same config.
 
 ## Plugging in a real stadium
 
