@@ -35,6 +35,9 @@ Other scripts:
 | `npm run build` | Type-checks, then builds a static site into `dist/` |
 | `npm run preview` | Serves `dist/` locally |
 | `npm run typecheck` | `tsc --noEmit` only |
+| `npm test` | Runs the tests in `tests/` once (Vitest) |
+
+GitHub Actions runs the type check, the tests and a build on every push to `main` and every pull request, and fails if the build would change the committed `public/data` files (a config edited without regenerating them).
 
 The site is fully static: `dist/` can be hosted on any file server or CDN.
 
@@ -275,17 +278,19 @@ The renderer only reads `public/data/*.json`, so a real venue is a data swap, no
 
 ## Development notes
 
+- Tests (`tests/`, Vitest) cover the generators (every venue: determinism, unique and round-tripping seat IDs, capacities, row labels, block names and seat numbering, scoreboards, dugouts, crowd colours, config errors), the ticket data and `Tickets` lookups (price runs, ranges, availability counts checked seat by seat), and the adaptive resolution controller against a simulated display and GPU. Capacity tests pin 54,448 seats for the default stadium and 52,162 for St James' Park, so a deliberate config change means updating them.
+
 - In development, `window.__stadium` exposes the store, camera controller and two helpers in the browser console:
   - `__stadium.goToSeat('S-324-R22-N09')` jumps straight into a seat view without animating, for repeatable screenshots and checks.
   - `await __stadium.benchmark(5)` measures the real on-screen frame rate over 5 seconds at the current view and quality. Keep the tab visible; hidden tabs are throttled.
 - Seats use one `InstancedMesh` per section (frustum culling per section, cheap repaints), with a 10-triangle chair up close and a 4-triangle one far away. The crowd uses the same pattern (30 / 4 triangles).
 - Shadows come from one directional light and are only redrawn when the lighting or quality changes, because nothing that casts a shadow moves.
 - Quality presets live in [`src/scene/quality.ts`](src/scene/quality.ts). Touch devices and narrow windows start on Low.
-- Adaptive resolution (same file) lowers the pixel ratio a step at a time when the frame rate stays below 58 fps:
-  - down to 0.7× on ordinary windows
-  - on very large ones, down to about 1080p-equivalent sharpness
+- Adaptive resolution (same file) aims for the display's refresh rate, found from the gaps between animation frames. When the frame rate stays below it (below 58 fps at 60 Hz, about 3% under on faster displays), it lowers the pixel ratio a step at a time:
+  - at 60 Hz, down to 0.7× on ordinary windows, or to about 1080p-equivalent sharpness on very large ones
+  - above 60 Hz, only down to 85%. If the display rate is still out of reach, it aims for 60 fps at full resolution instead, and tries the display rate again later, waiting longer each time
 
-  It raises it again once things are steady. The fps readout shows "· NN% res" while it is active.
+  It raises the resolution again once things are steady. The fps readout shows "· NN% res" while resolution is lowered, and "· 60 fps target (display 144 Hz)" while it has settled for 60.
 - Measured on an Intel Iris Xe, on High:
   - 60 fps in every view at 1280×800
   - 60 fps at 1920×1080 and 2560×1440, with adaptive resolution

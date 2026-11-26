@@ -65,7 +65,8 @@ export function stadiumDataPlugin(): Plugin {
       // A relative base ('./') still serves from '/' in dev.
       base = cfg.base.startsWith('/') ? cfg.base : '/';
       outDir = resolve(cfg.root, cfg.build.outDir);
-      if (process.env.STADIUM_DATA === 'external') return;
+      // Tests import the generators directly; they don't need the files.
+      if (process.env.STADIUM_DATA === 'external' || process.env.VITEST) return;
       const name = process.env.STADIUM_CONFIG || 'default';
       const files = generate(name);
       if (name !== 'default') {

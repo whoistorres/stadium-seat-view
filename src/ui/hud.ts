@@ -5,7 +5,7 @@ export class FpsMeter {
   readonly el: HTMLElement;
   /** Latest half-second average, exposed for automated checks. */
   value = 0;
-  /** Extra text after the fps figure, e.g. "85% res" when resolution is reduced. */
+  /** Extra text after the fps figure, e.g. "85% res" when resolution is reduced or "60 fps target". */
   note = '';
   private frames = 0;
   private last = performance.now();
@@ -25,7 +25,11 @@ export class FpsMeter {
     if (span >= 500) {
       this.value = (this.frames * 1000) / span;
       this.el.textContent = `${Math.round(this.value)} fps${this.note ? ` · ${this.note}` : ''}`;
-      this.el.title = this.note ? 'Rendering at reduced resolution to keep the frame rate up' : '';
+      this.el.title = !this.note
+        ? ''
+        : this.note.includes('res')
+          ? 'Rendering at reduced resolution to keep up with the display'
+          : 'Keeping up with this display would blur the image, so aiming for a sharp 60 fps instead';
       this.frames = 0;
       this.last = now;
     }

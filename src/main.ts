@@ -192,7 +192,11 @@ async function boot(): Promise<void> {
     ctx.renderer.render(ctx.scene, ctx.camera);
     fps.sample(now);
     resolution.update(fps.value, now);
-    fps.note = resolution.scale < 0.99 ? `${Math.round(resolution.scale * 100)}% res` : '';
+    fps.note = resolution.cappedAt60
+      ? `60 fps target (display ${resolution.refresh.hz} Hz)`
+      : resolution.scale < 0.99
+        ? `${Math.round(resolution.scale * 100)}% res`
+        : '';
   });
 
   if (import.meta.env.DEV) {

@@ -60,7 +60,10 @@ npm install
 npm run dev          # http://localhost:5173
 npm run build        # type-check + static build into dist/
 npm run preview      # serve dist/
+npm test             # Vitest: generators, tickets, adaptive resolution
 ```
+
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the type check, the tests and a build on every push to `main` and every pull request, and fails if the build would change the committed `public/data` files.
 
 Starting the dev server or a build regenerates `public/data/stadium.json` and `public/data/tickets.json` from a config. `STADIUM_CONFIG=<name>` picks one from [`src/config/index.ts`](src/config/index.ts) (default: [`src/config/stadiumConfig.ts`](src/config/stadiumConfig.ts)); in PowerShell, `$env:STADIUM_CONFIG='st-james-park'; npm run dev`. Only the default config is written to `public/data`; any other is served from memory in dev and written to `dist/data` in a build, so a venue preview can't leave its data behind to be committed. Set `STADIUM_DATA=external` to keep hand-supplied data instead.
 
@@ -165,11 +168,11 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
   | Pixel ratio | up to 1.5× | 1× |
 
   Touch screens and narrow windows start on Low.
-- **Adaptive resolution:** when the frame rate stays below 58 fps, it renders fewer pixels, one step at a time.
-  - Floor on ordinary windows: 0.7×.
-  - Floor on very large windows: about 1080p-equivalent sharpness.
-  - It steps back up once performance is steady, waiting longer each time a step back up has to be undone.
-  - The fps readout shows when resolution is reduced, for example "60 fps · 76% res".
+- **Adaptive resolution:** aims for the display's refresh rate (measured from the gaps between frames). When the frame rate stays below it, it renders fewer pixels, one step at a time.
+  - At 60 Hz: floor of 0.7× on ordinary windows, about 1080p-equivalent sharpness on very large ones.
+  - Above 60 Hz: floor of 85%. If that still can't keep up, it aims for a sharp 60 fps at full resolution instead, and retries the display rate later.
+  - It steps back up once performance is steady, waiting longer each time a step back up (or a retry of the display rate) has to be undone.
+  - The fps readout shows when resolution is reduced, for example "60 fps · 76% res", or "60 fps target (display 144 Hz)" when it has settled for 60.
 - **Loading screen** with progress steps, and an FPS readout in the top bar.
 
 ### UI and accessibility
@@ -208,6 +211,8 @@ src/
   scene/                       Pitch, stands, seats, roof, crowd, labels, lighting, quality;
                                aisles.ts (stairs, tunnel mouths), details.ts (scoreboards, dugouts)
   ui/                          Panel, legend/filters, overlay, tooltip, HUD, styles
+tests/                         Vitest: generators, tickets, adaptive resolution (simulated GPU)
+.github/workflows/ci.yml       Type check, tests, build and a public/data check on every push and PR
 ```
 
 ### Data flow
@@ -289,6 +294,7 @@ After the six phases the project went under git and onto GitHub, and work moved 
 | 2026-11-26 | Seat view aim; stadium details | Seat view faces the nearest part of the pitch, with a centre-spot toggle; aisle stairs, tunnel mouths, scoreboards and dugouts. The dugouts' back wall was made clear above a low panel after it blocked the view from the front rows behind them |
 | 2026-11-26 | Per-seat pricing; team colours | Seat prices vary by row and position within each price zone, and every filter, count and colour works per seat; the crowd wears home and away kits, with stripes |
 | 2026-11-26 | Venue previews kept out of `public/data` | Twice a St James' Park preview (once relaunched by the desktop app after being stopped) overwrote the committed default data just before a commit; caught before pushing. Non-default configs are now served from memory instead of written to disk |
+| 2026-11-26 | Tests and CI; refresh-rate matching | 68 Vitest tests and a GitHub Actions workflow. Adaptive resolution now aims for the display's refresh rate, accepting at most a 15% drop in resolution before settling for a sharp 60 fps. A first simulation sat at 138 fps on a 144 Hz display, inside a 4% margin and never adjusting, though that means a dropped frame every fifth of a second; the margin became 3% |
 
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
@@ -390,7 +396,7 @@ Early measurements taken while the browser pane was hidden were discarded: the b
 - Mock availability and no checkout. "Your seat" lasts only for the session.
 
 **Untested**
-- displays faster than 60 Hz
+- real displays faster than 60 Hz (the controller is tested only against a simulated 144 Hz display and GPU)
 - other GPUs
 - real high-DPI monitors (only emulated)
 - Firefox and Safari
