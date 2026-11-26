@@ -12,6 +12,8 @@ export interface ViewNotes {
   clearance: number | null;
   /** What the clearance is measured over. */
   over: 'row' | 'wall' | null;
+  /** True when a dugout stands in the way of the near touchline. */
+  dugout: boolean;
   /** What is overhead: the roof, the tier above, or nothing. */
   covered: 'roof' | 'tier' | null;
   /**
@@ -39,6 +41,7 @@ export function viewNotes(stadium: Stadium, ref: SeatRef): ViewNotes {
   const notes: ViewNotes = {
     clearance: null,
     over: null,
+    dugout: false,
     covered: null,
     topAngle: null,
     toPitch,
@@ -69,6 +72,23 @@ export function viewNotes(stadium: Stadium, ref: SeatRef): ViewNotes {
 
   const shell = data.shell;
   if (!shell) return notes;
+  notes.dugout = (shell.dugouts ?? []).some((dg) => {
+    // Walk the sightline to the nearest pitch point and test it against the dugout's box,
+    // whose canopy falls from the full height at the back to 3/4 of it at the front.
+    const fx = Math.sin(dg.yaw);
+    const fz = Math.cos(dg.yaw);
+    for (let i = 1; i < 40; i++) {
+      const s = i / 40;
+      const x = ex + (px - ex) * s;
+      const z = ez + (pz - ez) * s;
+      const u = (x - dg.x) * -fz + (z - dg.z) * fx;
+      const v = (x - dg.x) * fx + (z - dg.z) * fz;
+      if (Math.abs(u) > dg.length / 2 || Math.abs(v) > dg.depth / 2) continue;
+      const top = dg.y + dg.height * (1 - 0.25 * (v / dg.depth + 0.5));
+      if (ey * (1 - s) < top) return true;
+    }
+    return false;
+  });
   const pi = PIECE_SIDES.indexOf(section.side);
   const stand = shell.stands[pi];
   if (!stand) return notes;
@@ -118,7 +138,9 @@ function clearanceText(n: ViewNotes): string | null {
 export function describeView(n: ViewNotes): Array<[string, string]> {
   const out: Array<[string, string]> = [];
   const sight = clearanceText(n);
-  if (sight) out.push(['Sightline', sight]);
+  const dugout = 'a dugout hides part of the near touchline';
+  if (sight) out.push(['Sightline', n.dugout ? `${sight}; ${dugout}` : sight]);
+  else if (n.dugout) out.push(['Sightline', dugout[0].toUpperCase() + dugout.slice(1)]);
   const cover = n.covered === 'tier' ? 'Under the tier above' : n.covered === 'roof' ? 'Under the roof' : 'Open to the sky';
   const what = n.covered === 'tier' ? 'the tier above' : 'the roof edge';
   const angle = n.topAngle === null ? null : Math.round(n.topAngle);

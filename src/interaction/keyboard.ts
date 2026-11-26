@@ -13,6 +13,7 @@ const LOOK_STEP = 8;
 
 /**
  * Esc: back to overview. Arrows: adjacent seat. W/A/S/D: look around. R: recentre.
+ * C: look at the centre spot / the nearest part of the pitch.
  * +/-: field of view.
  */
 export function attachKeyboard(store: AppStore, actions: Actions): void {
@@ -43,6 +44,7 @@ export function attachKeyboard(store: AppStore, actions: Actions): void {
     else if (key === 'w') actions.look(0, LOOK_STEP);
     else if (key === 's') actions.look(0, -LOOK_STEP);
     else if (key === 'r') actions.recentre();
+    else if (key === 'c') actions.toggleAim();
     else if (key === '+' || key === '=') actions.setFov(s.fov + 5);
     else if (key === '-' || key === '_') actions.setFov(s.fov - 5);
     else handled = false;

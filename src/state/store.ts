@@ -1,3 +1,4 @@
+import type { SeatAim } from '../camera/cameraController';
 import type { SeatRef } from '../data/loadData';
 import type { TicketFilters } from '../data/tickets';
 
@@ -22,6 +23,8 @@ export interface AppState {
   quality: Quality;
   timeOfDay: TimeOfDay;
   fov: number;
+  /** What the seat view looks at when it arrives or is recentred. */
+  aim: SeatAim;
 }
 
 export type Listener<T> = (state: T, prev: T) => void;
@@ -67,6 +70,7 @@ export const initialState: AppState = {
   quality: 'high',
   timeOfDay: 'day',
   fov: 70,
+  aim: 'near',
 };
 
 export type AppStore = Store<AppState>;

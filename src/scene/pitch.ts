@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ringPoints } from '../data/bowlPath';
-import type { BowlShape, StadiumData } from '../data/types';
+import type { BowlShape, DugoutSpec, StadiumData } from '../data/types';
 import { QuadBuilder, type V3 } from './geo';
 
 const LINE = 0.12;
@@ -178,13 +178,30 @@ function boardTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-function adBoards(length: number, width: number): THREE.Group {
+/** Splits a touchline board run [x0, x1] around the dugouts on that side (with 1 m to spare). */
+function touchlineRuns(x0: number, x1: number, z: number, dugouts: readonly DugoutSpec[]) {
+  const gaps = dugouts
+    .filter((d) => Math.sign(d.z) === Math.sign(z))
+    .map((d) => [d.x - d.length / 2 - 1, d.x + d.length / 2 + 1] as const)
+    .sort((a, b) => a[0] - b[0]);
+  const out: Array<{ len: number; x: number; z: number; rot: number }> = [];
+  let from = x0;
+  for (const [a, b] of [...gaps, [x1, x1] as const]) {
+    const to = Math.min(a, x1);
+    if (to - from > 1) out.push({ len: to - from, x: (from + to) / 2, z, rot: 0 });
+    from = Math.max(from, b);
+  }
+  return out;
+}
+
+function adBoards(length: number, width: number, dugouts: readonly DugoutSpec[]): THREE.Group {
   const g = new THREE.Group();
   g.name = 'ad-boards';
   const height = 0.9;
+  const half = (length - 9) / 2;
   const runs: Array<{ len: number; x: number; z: number; rot: number }> = [
-    { len: length - 9, x: 0, z: width / 2 + 4, rot: 0 },
-    { len: length - 9, x: 0, z: -(width / 2 + 4), rot: 0 },
+    ...touchlineRuns(-half, half, width / 2 + 4, dugouts),
+    ...touchlineRuns(-half, half, -(width / 2 + 4), dugouts),
     { len: width - 12, x: length / 2 + 5.5, z: 0, rot: Math.PI / 2 },
     { len: width - 12, x: -(length / 2 + 5.5), z: 0, rot: Math.PI / 2 },
   ];
@@ -261,6 +278,6 @@ export function buildPitch(data: StadiumData, maxAnisotropy: number): THREE.Grou
   lines.name = 'markings';
   group.add(lines);
 
-  group.add(goal(-1, length / 2), goal(1, length / 2), adBoards(length, width));
+  group.add(goal(-1, length / 2), goal(1, length / 2), adBoards(length, width, data.shell?.dugouts ?? []));
   return group;
 }

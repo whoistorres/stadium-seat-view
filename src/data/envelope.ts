@@ -1,5 +1,5 @@
 import { offsetAt, piecesNear } from './bowlPath.ts';
-import type { RoofSpec, ShellSpec, StandShell } from './types';
+import type { RoofSpec, ScoreboardSpec, ShellSpec, StandShell } from './types';
 
 /** Roof underside height at offset d (the roof is a straight sloped slab in section). */
 export function roofUndersideAt(roof: RoofSpec, d: number): number {
@@ -55,5 +55,23 @@ export function clearanceHeightAt(shell: ShellSpec, x: number, z: number, margin
     const stand = shell.stands[i];
     if (stand) h = Math.max(h, standClearanceAt(stand, d, margin));
   }
+  for (const b of shell.scoreboards ?? []) h = Math.max(h, scoreboardClearanceAt(b, x, z, margin));
   return h;
+}
+
+/** Scoreboard frame and legs above its base, as built by the renderer (1 m legs, 0.3 m frame). */
+export const scoreboardTop = (b: ScoreboardSpec) => b.y + 1 + b.height + 0.6;
+
+/**
+ * Over a scoreboard and 2 m round it the camera stays `margin` above its top, then the
+ * requirement fades out over the next 10 m.
+ */
+function scoreboardClearanceAt(b: ScoreboardSpec, x: number, z: number, margin: number): number {
+  const fx = Math.sin(b.yaw);
+  const fz = Math.cos(b.yaw);
+  const u = (x - b.x) * -fz + (z - b.z) * fx;
+  const v = (x - b.x) * fx + (z - b.z) * fz;
+  const e = Math.hypot(Math.max(0, Math.abs(u) - b.width / 2 - 0.3), Math.max(0, Math.abs(v) - 0.4));
+  const k = Math.min(1, Math.max(0, 1 - (e - 2) / 10));
+  return (scoreboardTop(b) + margin) * k;
 }

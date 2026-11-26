@@ -189,6 +189,9 @@ function upgrade(data: unknown): unknown {
 function validate(data: unknown): asserts data is StadiumData {
   const d = data as Partial<StadiumData> | null;
   if (!d || d.version !== 2) throw new Error('stadium.json: unsupported or missing "version" (expected 1 or 2)');
+  for (const key of ['scoreboards', 'dugouts'] as const) {
+    if (d.shell?.[key] !== undefined && !Array.isArray(d.shell[key])) throw new Error(`stadium.json: "shell.${key}" must be a list`);
+  }
   if (d.shell && (!Array.isArray(d.shell.stands) || d.shell.stands.length !== PIECE_SIDES.length)) {
     throw new Error(`stadium.json: "shell.stands" needs ${PIECE_SIDES.length} entries (${PIECE_SIDES.join(', ')}), null for no stand`);
   }

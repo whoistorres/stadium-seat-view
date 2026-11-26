@@ -7,6 +7,7 @@ An interactive 3D soccer stadium where fans can preview the view from any seat b
 - Orbit overview → click a section → click a seat → animated fly-in to a first-person seat view
 - Mock ticketing: four price categories, sold seats, category and price filters, "Select seat"
 - Day / evening lighting, crowd on sold seats, Low / High quality, desktop and mobile layouts
+- Stadium details: aisle stairs leading up to tunnel mouths, scoreboards, team dugouts
 
 Stack: Vite + TypeScript + Three.js. Plain DOM/CSS for the UI, no other runtime libraries, no backend.
 
@@ -49,6 +50,7 @@ A seat can be linked directly: `http://localhost:5173/#S-214-R12-N07` opens that
 | Zoom into a section | click it | tap it |
 | Open a seat view | click a seat | tap a seat |
 | Look around (seat view) | drag, or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>; <kbd>R</kbd> recentres | drag |
+| Look at the nearest part of the pitch (default) or the centre spot | Centre spot button or <kbd>C</kbd> | Centre spot button |
 | Field of view (60–100°) | slider, wheel, <kbd>+</kbd> / <kbd>−</kbd> | slider |
 | Adjacent seat | <kbd>←</kbd> <kbd>→</kbd> seat, <kbd>↑</kbd> <kbd>↓</kbd> row behind / in front | on-screen arrows |
 | Back to overview | <kbd>Esc</kbd> or the Back button | Back button |
@@ -101,6 +103,8 @@ src/
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
 | `exterior.facade` | Outer wall finish for every stand: `'concrete'` (default, plain grey), `'glass'` (curtain wall with floor bands and mullions, windows lit in the evening), `'panels'` (light cladding with joint lines) or `'brick'`. Drawn in flat colours for the overview |
 | `exterior.apron` | Width of the paved apron round the outer walls, metres (default 15; `0` for none) |
+| `details.scoreboards` | Big screens, each `{ stand, at?, width?, height? }`: the stand it stands on (on the front of its roof, or on its back wall without one), position along it from `0` (left end, as seen sitting in it facing the pitch) to `1` (default `0.5`), and screen size (default 14 × 6 m). Default: one in the middle of each end stand (`E`, `W`); `[]` for none |
+| `details.dugouts` | Touchline the two team dugouts are on, either side of the halfway line: `'N'` (default), `'S'` or `null` for none. They back onto the advertising boards and are left out if there isn't room |
 | `stands` | Optional per-stand overrides, see below |
 
 **Per-stand overrides.** The bowl has eight pieces: sidelines `N`, `S`, ends `E`, `W` and corners `NE`, `NW`, `SE`, `SW`. By default every piece gets every tier, the stadium-wide roof and `sectionsPerZone`. `stands` changes that piece by piece:
@@ -179,7 +183,9 @@ Rendering code never reads the config, only the generated JSON, so changing valu
     shape: { sx, sz, r0, cx?, cz?, squareCorners? }, // front-row line: rectangle with round (or listed square) corners
     stands: [StandShell | null, ...],             // 8 entries: S, SE, E, NE, N, NW, W, SW; null = no stand
                                                   // StandShell.facade?: outer wall finish (default concrete)
-    apron?: 15                                    // paved apron width round the outer walls
+    apron?: 15,                                   // paved apron width round the outer walls
+    scoreboards?: [{ x, y, z, yaw, width, height }],        // big screens; y = base, yaw turns local +Z to the pitch
+    dugouts?: [{ x, y, z, yaw, length, depth, height }]     // team dugouts
   } | null,
   sections: [{
     id: "214",                                    // number, or the real block name, e.g. "GSQ"

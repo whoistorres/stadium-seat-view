@@ -1,12 +1,15 @@
-import { bowlPieces, pieceLength, pointOnPiece, type Piece } from './bowlPath.ts';
-import { standOverhangs } from './overhang.ts';
+import { bowlPieces, PIECE_SIDES, pieceLength, pointOnPiece, type Piece } from './bowlPath.ts';
+import { standOverhangs, WALL_THICKNESS } from './overhang.ts';
 import type {
   BowlShape,
+  DugoutSpec,
   FacadeStyle,
   RoofConfig,
   RoofSpec,
   Row,
   RowLabels,
+  ScoreboardConfig,
+  ScoreboardSpec,
   SeatNumbering,
   SeatTuple,
   Section,
@@ -299,6 +302,61 @@ export function rowLabel(labels: RowLabels | undefined, k: number): string | und
 }
 
 /** Pure function: same config in, same seats (and seat IDs) out. */
+/**
+ * Big screens on the front of a stand's roof, a little back from its edge, or on the back wall of
+ * a stand without one. Default: the middle of each end stand that exists.
+ */
+function scoreboards(cfg: StadiumConfig, shell: ShellSpec, pieces: Piece[]): ScoreboardSpec[] {
+  const list: ScoreboardConfig[] =
+    cfg.details?.scoreboards ??
+    (['E', 'W'] as const).filter((s) => shell.stands[PIECE_SIDES.indexOf(s)]).map((stand) => ({ stand }));
+  return list.map((b, i) => {
+    const where = `details.scoreboards[${i}]`;
+    const pi = PIECE_SIDES.indexOf(b.stand);
+    const stand = pi >= 0 ? shell.stands[pi] : null;
+    if (!stand) throw new Error(`stadiumConfig: ${where} is on "${b.stand}", where there is no stand`);
+    const at = b.at ?? 0.5;
+    const width = b.width ?? 14;
+    const height = b.height ?? 6;
+    if (!(at >= 0 && at <= 1)) throw new Error(`stadiumConfig: ${where} "at" must be between 0 and 1`);
+    if (!(width > 0 && height > 0)) throw new Error(`stadiumConfig: ${where} needs a positive width and height`);
+    const roof = stand.roof;
+    const top = stand.tiers[stand.tiers.length - 1];
+    let d: number;
+    let y: number;
+    if (roof) {
+      d = Math.min(roof.innerD + 1.5, (roof.innerD + roof.outerD) / 2);
+      const t = (roof.outerD - d) / (roof.outerD - roof.innerD);
+      y = roof.outerY + t * (roof.innerY - roof.outerY) + roof.thickness;
+    } else {
+      d = top.backD + 0.4;
+      y = top.topY + 3;
+    }
+    const p = pointOnPiece(pieces[pi], shell.shape, d, at);
+    return { x: round(p.x, 3), y: round(y, 3), z: round(p.z, 3), yaw: round(Math.atan2(-p.nx, -p.nz), 4), width, height };
+  });
+}
+
+/**
+ * The two team dugouts, either side of the halfway line, backing onto the advertising boards
+ * (4 m from the touchline) or the stand's front wall if that is closer. None when there isn't
+ * room for a 1.2 m deep shelter at least 1.2 m clear of the touchline.
+ */
+function dugouts(cfg: StadiumConfig, shell: ShellSpec, pieces: Piece[]): DugoutSpec[] {
+  const side = cfg.details?.dugouts === undefined ? 'N' : cfg.details.dugouts;
+  if (side === null) return [];
+  if (side !== 'N' && side !== 'S') throw new Error(`stadiumConfig: "details.dugouts" must be 'N', 'S' or null`);
+  const sign = side === 'N' ? -1 : 1;
+  const touch = (sign * cfg.pitch.width) / 2;
+  const wall = pointOnPiece(pieces[PIECE_SIDES.indexOf(side)], shell.shape, -WALL_THICKNESS, 0.5);
+  const back = Math.min(4, Math.abs(wall.z - touch) - 0.3);
+  const depth = Math.min(2.2, back - 1.2);
+  if (depth < 1.2) return [];
+  const z = round(touch + sign * (back - depth / 2), 3);
+  const yaw = side === 'N' ? 0 : round(Math.PI, 4);
+  return [-8, 8].map((x) => ({ x, y: 0, z, yaw, length: 11, depth: round(depth, 3), height: 2 }));
+}
+
 export function generateStadium(cfg: StadiumConfig): StadiumData {
   checkTiers(cfg);
   const shape = bowlShape(cfg);
@@ -409,6 +467,10 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
     }),
     ...(cfg.exterior?.apron !== undefined ? { apron: cfg.exterior.apron } : {}),
   };
+  const boards = scoreboards(cfg, shell, pieces);
+  const benches = dugouts(cfg, shell, pieces);
+  if (boards.length) shell.scoreboards = boards;
+  if (benches.length) shell.dugouts = benches;
 
   return {
     version: 2,

@@ -53,6 +53,13 @@ function bezier(a: THREE.Vector3, c: THREE.Vector3, b: THREE.Vector3, clamped: b
 export type CameraMode = 'orbit' | 'seat';
 
 /**
+ * Where the seat view looks when it arrives or is recentred. 'near': the middle of the nearest
+ * part of the pitch (the centre of the pitch-wide square closest to the seat), so side and corner
+ * seats face their own end of the pitch the way a fan does. 'centre': the centre spot.
+ */
+export type SeatAim = 'near' | 'centre';
+
+/**
  * Owns the camera in both modes and every animated move between them.
  *
  * Flights are built from segments. Anything travelling through "orbit space" is clamped to
@@ -69,6 +76,7 @@ export class CameraController {
   private pending: (() => void) | null = null;
   private seat: SeatRef | null = null;
   private seatFov = 70;
+  private aim: SeatAim = 'near';
   private baseYaw = 0;
   private basePitch = 0;
   private lookYaw = 0;
@@ -129,7 +137,7 @@ export class CameraController {
     const eye = new THREE.Vector3(...this.stadium.eye(ref));
     const from = this.camera.position.clone();
     const hop = this.mode === 'seat' && from.distanceTo(eye) < 5;
-    const base = this.lookAngles(eye);
+    const base = this.lookAngles(eye, this.aim);
 
     const segments: Segment[] = [];
     if (hop) {
@@ -169,6 +177,23 @@ export class CameraController {
 
   setSeatFov(fov: number): void {
     this.seatFov = fov;
+  }
+
+  /** Change what the seat view looks at; in seat view the head turns there smoothly. */
+  setAim(aim: SeatAim): void {
+    this.aim = aim;
+    if (this.mode !== 'seat' || !this.seat || this.flight) return;
+    const base = this.lookAngles(new THREE.Vector3(...this.stadium.eye(this.seat)), aim);
+    // Keep the camera where it is this frame, then let the look offsets ease back to zero.
+    let dYaw = this.baseYaw - base.yaw;
+    while (dYaw > Math.PI) dYaw -= 2 * Math.PI;
+    while (dYaw < -Math.PI) dYaw += 2 * Math.PI;
+    this.curYaw += dYaw;
+    this.curPitch += this.basePitch - base.pitch;
+    this.baseYaw = base.yaw;
+    this.basePitch = base.pitch;
+    this.lookYaw = 0;
+    this.lookPitch = 0;
   }
 
   /**
@@ -375,8 +400,16 @@ export class CameraController {
     return new THREE.Vector3(ex + ux * reach, y, ez + uz * reach);
   }
 
-  private lookAngles(eye: THREE.Vector3): { yaw: number; pitch: number } {
-    const v = this.tmp.copy(PITCH_CENTRE).sub(eye);
+  private lookAngles(eye: THREE.Vector3, aim: SeatAim): { yaw: number; pitch: number } {
+    const target = this.tmp.copy(PITCH_CENTRE);
+    if (aim === 'near') {
+      // Centre of the nearest pitch-wide square: on the halfway-to-goal axis, clamped so a
+      // square as wide as the pitch still fits inside it.
+      const { length, width } = this.stadium.data.pitch;
+      const reach = Math.max(0, length / 2 - width / 2);
+      target.x = THREE.MathUtils.clamp(eye.x, -reach, reach);
+    }
+    const v = target.sub(eye);
     return { yaw: Math.atan2(-v.x, -v.z), pitch: Math.atan2(v.y, Math.hypot(v.x, v.z)) };
   }
 

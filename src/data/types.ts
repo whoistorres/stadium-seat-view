@@ -104,6 +104,16 @@ export interface StandConfig {
   facade?: FacadeStyle;
 }
 
+export interface ScoreboardConfig {
+  /** Stand it sits on. */
+  stand: Side;
+  /** Position along the stand, 0 = left end to 1 = right end as seen sitting in it facing the pitch. Default 0.5. */
+  at?: number;
+  /** Screen size in metres. Defaults 14 × 6. */
+  width?: number;
+  height?: number;
+}
+
 /**
  * Outer wall finish, drawn in flat colours. 'concrete' (default): plain grey. 'glass': curtain
  * wall with floor bands and mullions, lit at night. 'panels': light cladding with joint lines.
@@ -152,6 +162,16 @@ export interface StadiumConfig {
     facade?: FacadeStyle;
     /** Width of the paved apron round the outer walls, metres. Default 15; 0 for none. */
     apron?: number;
+  };
+  /** Pitchside and stand details. */
+  details?: {
+    /**
+     * Big screens, standing on the front of a stand's roof (or on its back wall without one).
+     * Default: one in the middle of each end stand (E, W) that exists. [] for none.
+     */
+    scoreboards?: ScoreboardConfig[];
+    /** Touchline the team dugouts are on, either side of the halfway line. Default 'N'; null for none. */
+    dugouts?: 'N' | 'S' | null;
   };
   /**
    * Per-stand overrides. A missing stand uses the stadium-wide values; `null` leaves that
@@ -250,6 +270,33 @@ export interface ShellSpec {
   stands: Array<StandShell | null>;
   /** Width of the paved apron round the outer walls; omitted = 15 m, 0 = none. */
   apron?: number;
+  /** Big screens. Omitted = none. */
+  scoreboards?: ScoreboardSpec[];
+  /** Team dugouts by the touchline. Omitted = none. */
+  dugouts?: DugoutSpec[];
+}
+
+/** A box standing at (x, y, z), rotated by yaw about Y so its local +Z faces the pitch. */
+interface Placed {
+  x: number;
+  /** Height of its base. */
+  y: number;
+  z: number;
+  yaw: number;
+}
+
+export interface ScoreboardSpec extends Placed {
+  width: number;
+  height: number;
+}
+
+export interface DugoutSpec extends Placed {
+  /** Along the touchline. */
+  length: number;
+  /** Back to front. */
+  depth: number;
+  /** Height at the back; the canopy slopes down towards the pitch. */
+  height: number;
 }
 
 /** stadium.json version 1 shell: one cross-section all the way round. Upgraded on load. */

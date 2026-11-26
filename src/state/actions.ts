@@ -13,6 +13,8 @@ export interface Actions {
   setFov(fov: number): void;
   look(dYawDeg: number, dPitchDeg: number): void;
   recentre(): void;
+  /** Toggle the seat view between the nearest part of the pitch and the centre spot. */
+  toggleAim(): void;
   /** Seats rejected here are skipped by moveSeat (e.g. sold or filtered out). */
   setSeatFilter(fn: (ref: SeatRef) => boolean): void;
 }
@@ -62,6 +64,10 @@ export function createActions(store: AppStore, camera: CameraController, stadium
 
     recentre() {
       camera.resetLook();
+    },
+
+    toggleAim() {
+      store.set({ aim: store.get().aim === 'near' ? 'centre' : 'near' });
     },
 
     setSeatFilter(fn) {

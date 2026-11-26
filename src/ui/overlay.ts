@@ -32,7 +32,8 @@ export function mountOverlay(root: HTMLElement, stadium: Stadium, store: AppStor
           <input id="fov" type="range" min="60" max="100" step="1" aria-describedby="fov-out" />
           <output id="fov-out" for="fov"></output>
         </div>
-        <button type="button" class="btn btn-overlay" id="btn-recentre" title="Look at the pitch centre (R)">Recentre</button>
+        <button type="button" class="btn btn-overlay" id="btn-aim" aria-pressed="false" title="Look at the centre spot instead of the nearest part of the pitch (C)">Centre spot</button>
+        <button type="button" class="btn btn-overlay" id="btn-recentre" title="Look back at the pitch (R)">Recentre</button>
       </div>
     </div>`;
 
@@ -43,9 +44,11 @@ export function mountOverlay(root: HTMLElement, stadium: Stadium, store: AppStor
   const toolbar = q<HTMLElement>('#seat-toolbar');
   const fov = q<HTMLInputElement>('#fov');
   const fovOut = q<HTMLOutputElement>('#fov-out');
+  const aim = q<HTMLButtonElement>('#btn-aim');
 
   back.addEventListener('click', () => actions.overview());
   q('#btn-recentre').addEventListener('click', () => actions.recentre());
+  aim.addEventListener('click', () => actions.toggleAim());
   fov.addEventListener('input', () => actions.setFov(Number(fov.value)));
   toolbar.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((b) =>
     b.addEventListener('click', () => actions.moveSeat(b.dataset.move as 'left')),
@@ -86,6 +89,7 @@ export function mountOverlay(root: HTMLElement, stadium: Stadium, store: AppStor
       fov.value = String(s.fov);
       fovOut.textContent = `${s.fov}°`;
     }
+    if (s.aim !== prev?.aim) aim.setAttribute('aria-pressed', String(s.aim === 'centre'));
   };
   store.subscribe(render);
   render(store.get());

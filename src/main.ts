@@ -15,6 +15,8 @@ import { AdaptiveResolution, applyQuality, defaultQuality } from './scene/qualit
 import { buildRoof } from './scene/roof';
 import { createScene } from './scene/sceneSetup';
 import { SeatLayer } from './scene/seats';
+import { buildAisles } from './scene/aisles';
+import { buildDetails } from './scene/details';
 import { buildShell, buildSteps } from './scene/stands';
 import { TicketColors } from './scene/ticketColors';
 import { createActions, type Actions } from './state/actions';
@@ -96,9 +98,13 @@ async function boot(): Promise<void> {
   const lighting = new Lighting(ctx.scene, ctx.renderer, stadium.data.shell);
   const pitch = buildPitch(stadium.data, ctx.renderer.capabilities.getMaxAnisotropy());
   ctx.scene.add(pitch, buildSteps(stadium.data));
+  const aisles = buildAisles(stadium.data);
+  if (aisles) ctx.scene.add(aisles);
   const shell = stadium.data.shell ? buildShell(stadium.data.shell) : null;
   const roof = stadium.data.shell ? buildRoof(stadium.data.shell) : null;
   if (shell) ctx.scene.add(shell);
+  const details = stadium.data.shell ? buildDetails(stadium.data.shell) : null;
+  if (details) ctx.scene.add(details);
   if (roof) ctx.scene.add(roof.group);
 
   const boards: THREE.MeshStandardMaterial[] = [];
@@ -141,8 +147,10 @@ async function boot(): Promise<void> {
     if (s.timeOfDay !== p.timeOfDay) lighting.setTime(s.timeOfDay);
     if (s.quality !== p.quality) applyQuality(s.quality, resolution, lighting, crowd);
     if (s.fov !== p.fov) cameraController.setSeatFov(s.fov);
+    if (s.aim !== p.aim) cameraController.setAim(s.aim);
   });
   cameraController.setSeatFov(store.get().fov);
+  cameraController.setAim(store.get().aim);
   cameraController.onFovWheel = (fov) => actions.setFov(fov);
 
   mountPanel(el('panel'), stadium, tickets, store, actions);

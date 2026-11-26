@@ -83,7 +83,7 @@ export function buildSteps(data: StadiumData): THREE.Mesh {
 }
 
 /** Height where a stand's back wall meets the underside of its roof (or a lid without one). */
-function backWallTop(stand: StandShell): number {
+export function backWallTop(stand: StandShell): number {
   const top = stand.tiers[stand.tiers.length - 1];
   const roof = stand.roof;
   return roof

@@ -202,6 +202,15 @@ input {
   backdrop-filter: blur(6px);
 }
 
+/* Toggle buttons: pressed state shown by the accent border and a tick, not colour alone. */
+.btn-overlay[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+.btn-overlay[aria-pressed='true']::before {
+  content: '✓ ';
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;

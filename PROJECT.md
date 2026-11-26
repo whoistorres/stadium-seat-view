@@ -103,7 +103,7 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Section view:** clicking a section flies the camera to frame it, and dims the other sections.
 - **Seat view:**
   - first-person camera 1.2 m above the step the seat stands on
-  - initially aimed at the centre spot
+  - initially aimed at the nearest part of the pitch (the centre of the pitch-wide square closest to the seat), so corner and end seats face their own end the way a fan does; the Centre spot button or C switches to the centre spot
   - drag or W/A/S/D to look around, up to ±110° left/right
   - field of view 60–100° by slider, mouse wheel or +/−
   - R recentres the view
@@ -146,6 +146,11 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
   - Slight random turn and size for each figure.
   - Two detail levels.
   - The figure on the camera's own seat is removed.
+- **Stadium details:**
+  - Aisle stairs between neighbouring sections, two steps per row with yellow nosings, found from the seat rows.
+  - Tunnel mouths at the top of each aisle where the wall there is tall enough: under an overhanging tier, in the front wall of a tier above a walkway, or in the back wall of the top tier.
+  - Scoreboards on the front of a stand's roof (or its back wall), showing a lit generic scoreline by day and night.
+  - Team dugouts by the halfway line with clear canopies, backing onto the advertising boards (which stop either side of them). The seat card says when a dugout hides part of the near touchline.
 
 ### Quality and performance
 - **Low/High switch:**
@@ -190,7 +195,7 @@ src/
     generateTickets.ts         StadiumData -> TicketData (seeded mock)
     bowlPath.ts                bowl geometry (round or square corners), shared by generator and renderer
     overhang.ts                where a tier hangs over the one below; shared by generator, renderer, camera
-    viewNotes.ts               per-seat view notes for the seat card: clearance, cover, distances
+    viewNotes.ts               per-seat view notes for the seat card: clearance, cover, distances, dugouts
     envelope.ts                stand and roof heights for keeping the camera outside the building
     loadData.ts                load + validate stadium.json; seat indexing; neighbour search
     tickets.ts                 load + validate tickets.json; availability and filter lookups
@@ -198,7 +203,8 @@ src/
   state/store.ts, actions.ts   Tiny pub/sub store; every user intent goes through actions
   camera/cameraController.ts   Orbit, section and seat views; animated flights
   interaction/                 Picking (section proxies + seat raycast), pointer, keyboard
-  scene/                       Pitch, stands, seats, roof, crowd, labels, lighting, quality
+  scene/                       Pitch, stands, seats, roof, crowd, labels, lighting, quality;
+                               aisles.ts (stairs, tunnel mouths), details.ts (scoreboards, dugouts)
   ui/                          Panel, legend/filters, overlay, tooltip, HUD, styles
 ```
 
@@ -278,6 +284,7 @@ After the six phases the project went under git and onto GitHub, and work moved 
 | 2026-11-20 | Overhanging tiers | Negative setback with underside, headroom check and camera handling; St James' Park upper tier given an estimated 4 m overhang |
 | 2026-11-20 | Sightlines per stand; outside of the stadium | Optional per-stand rake design (used by the four-stands example; St James' Park keeps the shared design so its Milburn–Leazes wrap and photo fit hold); facade styles and a paved apron |
 | 2026-11-26 | View notes; seat numbering | Seat card explains what limits each seat's view; seats can be numbered across a whole stand, from either end, ready for the St James' Park block map |
+| 2026-11-26 | Seat view aim; stadium details | Seat view faces the nearest part of the pitch, with a centre-spot toggle; aisle stairs, tunnel mouths, scoreboards and dugouts. The dugouts' back wall was made clear above a low panel after it blocked the view from the front rows behind them |
 
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
@@ -302,7 +309,7 @@ Mid-project the files moved from a temporary workspace into `C:\Users\berni\stad
   - Gallowgate roof front edge: within 1 px of the photo.
   - Gallowgate block GS-Q row A: fits a model seat in the Gallowgate–Milburn corner to 3.6 px (27.9 px before the square corners).
 - **Capacity:** model 52,162; published about 52,300. The model has no executive box levels or media seats, so the close match is partly luck.
-- **Camera flights:** square corners 0 hits in 1,004 flights; overhang 0 hits in 930 flights across every section, plus 552 flights from the rows under a deliberately low overhang. Every frame-to-frame segment is raycast against the real triangles.
+- **Camera flights:** square corners 0 hits in 1,004 flights; overhang 0 hits in 930 flights across every section, plus 552 flights from the rows under a deliberately low overhang. Every frame-to-frame segment is raycast against the real triangles. Scoreboards and dugouts: 0 hits in 840 flights (in and out of 420 seats, including every third seat in the six Milburn rows behind the dugouts), each frame step tested against the objects' bounding boxes.
 - **Sightlines per stand** (C-value against each stand's own nearest touchline or goal line, median):
 
   | Stand | Lower | Upper |
@@ -355,12 +362,13 @@ Early measurements taken while the browser pane was hidden were discarded: the b
 
 **Model**
 - A rectangle with round or square corners; each stand is one straight piece. Missing:
-  - tunnel entrances, stairs and handrails
-  - scoreboards and corner gaps
-  - dugouts and a players' tunnel
+  - handrails, and tunnel mouths in lower tiers with only a low wall behind them (real ones come up through the seats, which would change the seat data)
+  - corner gaps
+  - a players' tunnel
 - Rows have constant depth.
+- Scoreboard and dugout positions are generic defaults (end stands, north touchline), not surveyed, St James' Park included.
 - Sightline checks assume everyone's eye is 1.2 m above their floor and aim at the nearest point of the pitch. Tall people and standing fans are not modelled.
-- **St James' Park:** the box levels between its tiers are not modelled, the overhang is an estimate, sections use generated numbers until the club's block map is in, and seat numbers run 1 to n per block (real tickets suggest they run across a whole stand).
+- **St James' Park:** the box levels between its tiers are not modelled, the overhang is an estimate, sections use generated numbers until the club's block map is in, and seat numbers run 1 to n per block (real tickets suggest they run across a whole stand; `seatNumbers` can do that once the block map confirms it).
 - With `shell: null` (a real venue's own building model), the orbit camera no longer has anything stopping it entering the building. That needs reworking for real venues.
 
 **Visuals**
@@ -370,7 +378,6 @@ Early measurements taken while the browser pane was hidden were discarded: the b
 - **Large windows:** the image gets softer there, because resolution is lowered to keep the frame rate.
 
 **Seat view**
-- Every seat initially looks at the centre spot, not the nearest part of the pitch.
 - Portrait phones use a wide vertical FOV (up to 105°), which adds some edge distortion.
 
 **Ticketing**
@@ -441,8 +448,7 @@ rather than selling a standalone viewer to top clubs.
 
 **Quality improvements**
 - Per-row or per-seat pricing.
-- Aim each seat's view at the nearest part of the pitch, with an option for the centre spot.
-- Real stairs, tunnel entrances, a scoreboard and dugouts.
+- Handrails, a players' tunnel, and lower-tier tunnel mouths that come up through the seats.
 - Higher-refresh-rate support in adaptive resolution (aim for the display's own rate).
 
 ---
