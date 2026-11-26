@@ -60,7 +60,7 @@ Everything is also reachable without the 3D view: the Section / Row / Seat dropd
 ## Project layout
 
 ```
-plugins/stadiumDataPlugin.ts   Vite plugin: config -> public/data/*.json at startup
+plugins/stadiumDataPlugin.ts   Vite plugin: config -> data at startup (default: public/data/*.json; others: served from memory)
 src/
   config/
     stadiumConfig.ts           Default stadium: all dimensions (the only file to edit for a different bowl)
@@ -157,7 +157,7 @@ Section numbers still run on within each tier, going round the bowl from the sou
 STADIUM_CONFIG=four-stands npm run dev
 ```
 
-In PowerShell: `$env:STADIUM_CONFIG='four-stands'; npm run dev`. This rewrites `public/data/*.json`, so restart without it to go back to the default stadium.
+In PowerShell: `$env:STADIUM_CONFIG='four-stands'; npm run dev`. Only the default config is written to `public/data/*.json` (the files in git). Any other config is served from memory by the dev server at the same URLs, and a build writes it into `dist/data/`, so previewing a venue never changes the committed data.
 
 | Name | What it is |
 |---|---|

@@ -62,7 +62,7 @@ npm run build        # type-check + static build into dist/
 npm run preview      # serve dist/
 ```
 
-Starting the dev server or a build regenerates `public/data/stadium.json` and `public/data/tickets.json` from a config. `STADIUM_CONFIG=<name>` picks one from [`src/config/index.ts`](src/config/index.ts) (default: [`src/config/stadiumConfig.ts`](src/config/stadiumConfig.ts)); in PowerShell, `$env:STADIUM_CONFIG='st-james-park'; npm run dev`. Restart without it (or run `npm run build`) to go back to the default data. Set `STADIUM_DATA=external` to keep hand-supplied data instead.
+Starting the dev server or a build regenerates `public/data/stadium.json` and `public/data/tickets.json` from a config. `STADIUM_CONFIG=<name>` picks one from [`src/config/index.ts`](src/config/index.ts) (default: [`src/config/stadiumConfig.ts`](src/config/stadiumConfig.ts)); in PowerShell, `$env:STADIUM_CONFIG='st-james-park'; npm run dev`. Only the default config is written to `public/data`; any other is served from memory in dev and written to `dist/data` in a build, so a venue preview can't leave its data behind to be committed. Set `STADIUM_DATA=external` to keep hand-supplied data instead.
 
 A specific seat can be linked directly, for example `http://localhost:5173/#S-324-R22-N09`.
 
@@ -186,7 +186,7 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 ### Module map
 
 ```
-plugins/stadiumDataPlugin.ts   Vite plugin: config -> public/data/*.json at startup
+plugins/stadiumDataPlugin.ts   Vite plugin: config -> data at startup (default: public/data/*.json; others: served from memory)
 src/
   config/index.ts              Named configs that STADIUM_CONFIG picks from
   config/stadiumConfig.ts      Default generic stadium
@@ -288,6 +288,7 @@ After the six phases the project went under git and onto GitHub, and work moved 
 | 2026-11-26 | View notes; seat numbering | Seat card explains what limits each seat's view; seats can be numbered across a whole stand, from either end, ready for the St James' Park block map |
 | 2026-11-26 | Seat view aim; stadium details | Seat view faces the nearest part of the pitch, with a centre-spot toggle; aisle stairs, tunnel mouths, scoreboards and dugouts. The dugouts' back wall was made clear above a low panel after it blocked the view from the front rows behind them |
 | 2026-11-26 | Per-seat pricing; team colours | Seat prices vary by row and position within each price zone, and every filter, count and colour works per seat; the crowd wears home and away kits, with stripes |
+| 2026-11-26 | Venue previews kept out of `public/data` | Twice a St James' Park preview (once relaunched by the desktop app after being stopped) overwrote the committed default data just before a commit; caught before pushing. Non-default configs are now served from memory instead of written to disk |
 
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
