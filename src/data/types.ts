@@ -47,6 +47,13 @@ export interface SeatNumbering {
   first?: number;
   /** Which end the first seat is at, as seen sitting in the stand facing the pitch. Default 'left'. */
   from?: 'left' | 'right';
+  /**
+   * Carry the numbers on from the neighbouring stand on this side (e.g. round a corner): each
+   * row starts one after the highest number in the matching row of that stand's same tier.
+   * Bands of blocks are matched from the back of the tier (back band to back band); a band with
+   * no match starts at 1. Use with `across: 'stand'`, without `first`.
+   */
+  continueFrom?: Side;
 }
 
 export interface RoofConfig {
@@ -77,7 +84,8 @@ export interface StandTier extends Partial<TierGeometry> {
    * For a tier whose rows are split into separately named blocks stacked front to back (e.g. a
    * band of "L1" blocks in front of a band of "L2" blocks): each band takes `rows` rows and has
    * its own `blocks`, left to right. The bands' rows must add up to the tier's. Row numbers and
-   * labels start again in each band. Replaces `blocks` and `sections`.
+   * labels start again in each band unless the band gives its own `rowLabels`. Replaces `blocks`
+   * and `sections`.
    */
   bands?: BlockBand[];
   /** Row labels in this stand, if they differ from the tier's. */
@@ -91,6 +99,8 @@ export interface BlockBand {
   rows: number;
   /** Block names across the band, left to right as seen sitting in the stand facing the pitch. */
   blocks: string[];
+  /** Row labels in this band, front to back, if they differ from the tier's (e.g. "GG" onwards). */
+  rowLabels?: RowLabels;
 }
 
 /**

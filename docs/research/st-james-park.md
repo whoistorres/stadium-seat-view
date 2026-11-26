@@ -16,6 +16,7 @@ Model compass letters: N = Milburn, E = Leazes, S = East Stand, W = Gallowgate.
 | Club, [26/27 season ticket information](https://www.newcastleunited.com/en/news/26-27-season-ticket-information) | 6 Mar 2026 | New higher-visibility bowl screens planned (no positions) |
 | BritBrief, [new scoreboards](https://britbrief.co.uk/business/tech/newcastle-united-to-install-new-scoreboards-at-st-james-park.html) (citing ChronicleLive and the FAB minutes) | Jul 2026 | Two new scoreboards, Strawberry Corner and Gallowgate End; Leazes End screen replaced |
 | NewcastleWorld article cited by Gemini (Milburn screen) | — | Could not be opened (HTTP 403). Unconfirmed |
+| A View From My Seat, [St James' Park sections](https://aviewfrommyseat.com/venue/St+James%27+Park/sections/) | fetched 26 Nov 2026 | 362 fan photos tagged with block, row and seat across 128 blocks: row letters, seat numbers and the corner prefixes. User-entered, so single tags can be wrong |
 
 The club PDFs and images are not copied into the repo; only the facts below are.
 
@@ -70,15 +71,61 @@ Four bands, front to back:
 ### Gallowgate–Milburn corner (model NW)
 - A, B, C, D, E; The Rooftops with Fenwick (hospitality) at the back.
 
+## Rows and seat numbers (fan photo tags, 2026-11-26)
+
+From the block, row and seat tags on A View From My Seat. "Rows" is the furthest-back row seen in
+each block, so the real count can be a little higher. Photos were not copied; only the tags.
+
+- **No I or O rows.** In 362 tags, I appears once (one Platinum Club photo) and O never, while H
+  and J appear 10–15 times each. So rows run A–H, J–N, P–Z: row Y is the 23rd row.
+- **Doubled letters at the front.** The lowest parts use AA, BB, CC...: Milburn L1 (AA–NN, 13
+  rows), Leazes L1 (AA–FF in the front blocks, GG–MM in the blocks behind: one run of 12 rows),
+  the Gallowgate lower blocks A–J (AA–JJ seen), the Leazes–East corner front blocks F–J (AA–MM),
+  and Gallowgate–Milburn corner block A (KK). Everything else uses single letters from A.
+- **Corner prefixes:** LWC (Leazes West Corner, the Milburn–Leazes corner, which matches the
+  club's "Leazes West Corner Blocks L7C, L7D and L7E"), LEC (Leazes East Corner), GEC (Gallowgate
+  East Corner, Strawberry Corner) and GWC (Gallowgate West Corner, the Gallowgate–Milburn corner).
+- **Level 7:** L7 rows to Y in the Milburn and Leazes Stands (23 rows); LL7 rows A–E (5 rows);
+  Leazes L6 rows to C (3 rows). So Level 7 is about 28 rows deep in the Milburn Stand and 31 in the
+  Leazes End. A fan in LS-L7H mentions 186 steps up to row W.
+- **Leazes lower levels:** L1 12 rows (AA–MM), L2 rows to X (22), L4 rows to S (17): about 51
+  rows below Level 7.
+- **Milburn lower levels:** L1 13 rows (AA–NN); LL2 rows to M (one W); L2 and L4 tags mix single
+  and doubled letters (A–P and CC–UU), so their scheme is unclear.
+- **East Stand:** blocks A–F rows to R (16), blocks H–M rows to W (21). The tags call H–M the
+  East Stand Upper. Both start at A.
+- **Gallowgate:** upper blocks R–V rows to U (19; a fan calls GS-V row U the back row), K–Q seen
+  to H; lower blocks seen to JJ. Strawberry Corner (GEC) rows to U; Gallowgate–Milburn corner
+  (GWC) B–E rows to Y.
+- **Seat numbers run along the whole stand, right to left** as seen from the seat. Milburn L1
+  runs from about 1 in L1A to about 222 in L1I; Leazes L2 from L2M to L2S; Leazes L4 from 1 in
+  L4T. East Stand A–F and H–M are numbered separately, each from about 1 at the Leazes end.
+  **Level 7 is one run round the corner:** about 1 in Milburn L7A, about 200 in Milburn L7G,
+  about 250–400 through the Leazes West Corner, and about 400–566 across the Leazes L7 blocks.
+
 ## Applied to the model (2026-11-26)
 
-- Every block above is a section, named with the ticket sites' stand prefix (MS, LS, ES, GS, NE,
-  SE, SW), in bands where the map stacks them. Rows per band are estimates from the map's
-  proportions. Leazes–East corner H and J are placed side by side.
+- Every block above is a section, named with the stand prefix fans and ticket sites use (MS,
+  LS, ES, GS, LWC, LEC, GEC, GWC), in bands where the map stacks them. Leazes–East corner H and J
+  are placed side by side.
 - Away crowd: all 12 straight Leazes Level 7 blocks (LL7F–LL7M, L7F–L7M).
 - Screens: Gallowgate End, Strawberry Corner, Leazes End. The Milburn screen was removed.
 - Capacity: model 53,804 (was 52,162), against the club's 52,719. The real blocks are wider than the old
   generated sections, so there are fewer aisles.
+
+## Applied to the model: rows and seat numbers (2026-11-26)
+
+- Rows per band from the furthest-back row tagged in fan photos; lettering skips I and O and
+  doubles at the front of the lowest levels; seats numbered right to left along each band, Level
+  7 in one run from Milburn L7A round to Leazes L7M.
+- Milburn/Leazes tiers re-shaped to those rows: lower tier 51 rows (16° rake, 20 mm sightline
+  target), Level 7 28 rows (31 in the Leazes End with L6 in front), hanging about 16 m out over
+  the lower tier with a sloped underside. Real Leazes L7 row F sits where the photo fit put the
+  camera (92.6 m out, eye 28 m up).
+- Leazes West Corner: lower tier starts 12 rows back (it has no L1 blocks), an inference.
+- Capacity: model 53,317, against the club's 52,719.
+- Not yet matched: East Stand (37 rows tagged, 28 modelled), Gallowgate West Corner back blocks
+  (38 modelled, tags to Y), Milburn L2/L4 lettering, Level 7 seats per row about 15% short.
 
 ## What this meant for the model (before the blocks were applied)
 
@@ -90,5 +137,11 @@ Four bands, front to back:
 
 ## Still unknown
 - **Upper-tier overhang:** no plan, section drawing or dimension found. Next place to look: Newcastle City Council's planning portal (applications for the 1990s–2000 Milburn/Leazes expansion).
+  Tried 2026-11-26: the old portal host (publicaccess.newcastle.gov.uk) no longer exists, and
+  the council's servers (newcastle.gov.uk, new.newcastle.gov.uk) didn't answer from outside the
+  UK, though gov.uk did. Third-party planning mirrors only list recent applications. Background
+  found: the Milburn/Leazes tier and roof were built June 1998 – August 2000 (contractor Ballast
+  Wiltshier, engineer WSP), and the cantilever roof is about 64.5 m long; that is its length, not
+  the tier overhang. Other places for drawings: Tyne and Wear Archives, WSP project notes.
 - Screen sizes and exact positions.
-- Row counts per block.
+- Row counts for the blocks no tagged photo reaches the back of (the counts used are minimums).

@@ -1,5 +1,5 @@
 import { bowlPieces, PIECE_SIDES, pieceLength, pointOnPiece, type Piece } from './bowlPath.ts';
-import { standOverhangs, WALL_THICKNESS } from './overhang.ts';
+import { overhangY, standOverhangs, WALL_THICKNESS } from './overhang.ts';
 import type {
   BowlShape,
   CrowdColours,
@@ -178,7 +178,7 @@ export interface ResolvedStand {
   /** Block names across each tier, parallel to `tiers`; undefined = numbered. */
   blocks: Array<string[] | undefined>;
   /** Bands of sections in each tier, front to back, parallel to `tiers`. One band unless split. */
-  bands: Array<Array<{ rows: number; count: number; blocks?: string[] }>>;
+  bands: Array<Array<{ rows: number; count: number; blocks?: string[]; rowLabels?: RowLabels }>>;
   roof: RoofConfig;
   shellDepth: number;
   facade: FacadeStyle;
@@ -210,7 +210,7 @@ export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(b
       blocks: list.map((t) => t.blocks),
       bands: list.map((t, i) =>
         t.bands
-          ? t.bands.map((b) => ({ rows: b.rows, count: b.blocks.length, blocks: b.blocks }))
+          ? t.bands.map((b) => ({ rows: b.rows, count: b.blocks.length, blocks: b.blocks, rowLabels: b.rowLabels }))
           : [{ rows: tiers[i].rows, count: sections[i], blocks: t.blocks }],
       ),
       roof: o?.roof === undefined ? cfg.roof : (o.roof ?? { ...cfg.roof, enabled: false }),
@@ -236,6 +236,9 @@ function checkTiers(cfg: StadiumConfig): void {
     }
   };
   for (const t of cfg.tiers) checkFirst(t.seatNumbers, `tier ${t.id}`);
+  for (const t of cfg.tiers) {
+    if (t.seatNumbers?.continueFrom) throw new Error(`stadiumConfig: tier ${t.id} "seatNumbers.continueFrom" belongs on a stand's tier, not in "tiers"`);
+  }
   for (const [side, stand] of Object.entries(cfg.stands ?? {})) for (const t of stand?.tiers ?? []) checkFirst(t.seatNumbers, `stand ${side}, tier ${t.id}`);
   for (const [side, stand] of Object.entries(cfg.stands ?? {})) {
     for (const t of stand?.tiers ?? []) {
@@ -260,6 +263,7 @@ function checkTiers(cfg: StadiumConfig): void {
           for (const name of b.blocks) {
             if (!/^[^\s-]+$/.test(name)) throw new Error(`stadiumConfig: ${where} block "${name}" must be one word with no hyphens`);
           }
+          checkRowLabels(b.rowLabels, b.rows, `${where}, band ${i + 1}`);
           sum += b.rows;
         });
         if (sum !== rows) throw new Error(`stadiumConfig: ${where} has bands of ${sum} rows in all, but the tier has ${rows}`);
@@ -298,6 +302,59 @@ function numberSeats(secs: Section[], rule: SeatNumbering | undefined): void {
   }
 }
 
+/**
+ * Seat numbers that carry on from a neighbouring stand (SeatNumbering.continueFrom): adds the
+ * highest number in the matching row of that stand to every seat. Stands are done in order, so
+ * a chain (Milburn -> corner -> Leazes) keeps running on.
+ */
+function continueSeatNumbers(sections: Section[], stands: Array<ResolvedStand | null>, pieces: Piece[]): void {
+  // Bands of one stand's tier, front to back, each as its sections left to right.
+  const bandsOf = (side: Side, tier: number): Section[][] => {
+    const byOffset = new Map<number, Section[]>();
+    for (const s of sections) {
+      if (s.side !== side || s.tier !== tier) continue;
+      const k = s.rowOffset ?? 0;
+      if (!byOffset.has(k)) byOffset.set(k, []);
+      byOffset.get(k)!.push(s);
+    }
+    return [...byOffset.keys()].sort((a, b) => a - b).map((k) => byOffset.get(k)!);
+  };
+  const done = new Set<string>();
+  const active = new Set<string>();
+  const run = (side: Side, tier: number): void => {
+    const key = `${side}/${tier}`;
+    if (done.has(key)) return;
+    if (active.has(key)) throw new Error(`stadiumConfig: stand ${side}, tier ${tier} "seatNumbers.continueFrom" goes round in a circle`);
+    active.add(key);
+    const pi = pieces.findIndex((p) => p.side === side);
+    const rule = stands[pi]?.tiers.find((t) => t.id === tier)?.seatNumbers;
+    const from = rule?.continueFrom;
+    if (from) {
+      const where = `stand ${side}, tier ${tier}`;
+      if (rule.first !== undefined) throw new Error(`stadiumConfig: ${where} has "seatNumbers.first" and "continueFrom"; drop "first"`);
+      if (from === side) throw new Error(`stadiumConfig: ${where} "seatNumbers.continueFrom" names its own stand`);
+      const source = bandsOf(from, tier);
+      if (source.length === 0) throw new Error(`stadiumConfig: ${where} "seatNumbers.continueFrom: ${from}", but stand ${from} has no tier ${tier}`);
+      run(from, tier);
+      const mine = bandsOf(side, tier);
+      for (let b = 1; b <= Math.min(mine.length, source.length); b++) {
+        const target = mine[mine.length - b];
+        const src = source[source.length - b];
+        const srcRows = src[0].rows.length;
+        for (let k = 0; k < target[0].rows.length; k++) {
+          const sk = Math.min(k, srcRows - 1);
+          let offset = 0;
+          for (const s of src) for (const t of s.rows[sk].seats) offset = Math.max(offset, t[0]);
+          for (const s of target) for (const t of s.rows[k].seats) t[0] += offset;
+        }
+      }
+    }
+    active.delete(key);
+    done.add(key);
+  };
+  stands.forEach((st, pi) => st?.tiers.forEach((t) => t.seatNumbers?.continueFrom && run(pieces[pi].side, t.id)));
+}
+
 /** Clear height needed between the back row's tread and an overhanging tier's underside. */
 const MIN_HEADROOM = 2.4;
 
@@ -309,11 +366,20 @@ function checkOverhangs(tiers: TierLayout[], side: string): void {
     if (o.innerD <= below.frontD) {
       throw new Error(`stadiumConfig: stand ${side}, tier ${upper.id} overhangs all of tier ${below.id}; make its "setback" less negative`);
     }
-    const clear = o.y - below.topY;
+    // Every row under the overhang, measured at the back of its tread (where the underside is
+    // highest above it only if the rows rise faster than the underside does).
+    let clear = Infinity;
+    const rows = Math.round((below.backD - below.frontD) / below.rowDepth);
+    for (let k = 0; k < rows; k++) {
+      const back = below.frontD + (k + 1) * below.rowDepth;
+      if (back <= o.innerD) continue;
+      const y = below.rowY?.[k] ?? below.frontY + k * below.rise;
+      clear = Math.min(clear, overhangY(o, back) - y, overhangY(o, back - below.rowDepth) - y);
+    }
     if (clear < MIN_HEADROOM) {
       throw new Error(
         `stadiumConfig: stand ${side}, tier ${upper.id} hangs over tier ${below.id} with only ${clear.toFixed(1)} m ` +
-          `above its back row (needs ${MIN_HEADROOM} m); raise its "lift" by ${(MIN_HEADROOM - clear + 0.05).toFixed(1)} m or more`,
+          `above the rows beneath it (needs ${MIN_HEADROOM} m); raise its "lift" by ${(MIN_HEADROOM - clear + 0.05).toFixed(1)} m or more`,
       );
     }
   }
@@ -448,7 +514,7 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
                 seats.push([seats.length + 1, round(p.x, 2), round(y, 2), round(p.z, 2), round(yaw, 4)]);
               }
             }
-            const label = rowLabel(t.rowLabels, k);
+            const label = rowLabel(band.rowLabels ?? t.rowLabels, k);
             rows.push(label === undefined ? { n: k + 1, seats } : { n: k + 1, label, seats });
           }
           sections.push({
@@ -467,6 +533,8 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
       }
     });
   }
+
+  continueSeatNumbers(sections, stands, pieces);
 
   const seen = new Map<string, TierConfig['id']>();
   for (const sec of sections) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { offsetAt, PIECE_SIDES } from '../data/bowlPath';
-import { OVERHANG_SLAB, overhangs, WALL_THICKNESS } from '../data/overhang';
+import { overhangs, overhangY, standOverhangs, WALL_THICKNESS } from '../data/overhang';
 import type { SeatTuple, Section, StadiumData } from '../data/types';
 import { QuadBuilder, type V3 } from './geo';
 import { backWallTop } from './stands';
@@ -77,6 +77,9 @@ export function findAisles(data: StadiumData): Aisle[] {
           half: THREE.MathUtils.clamp(gap - spacing, 0.7, 1.6) / 2,
         });
       }
+      // Across two stands, only where they share a cross-section all the way up: rows that
+      // merely happen to sit at the same heights for a while are not an aisle.
+      if (a.side !== b.side && points.length < rows) continue;
       if (points.length > 1) out.push({ section: a, points });
     }
   }
@@ -149,7 +152,8 @@ function addTunnelMouth(qb: QuadBuilder, data: StadiumData, section: Section, to
     ceiling = backWallTop(stand);
   } else if (overhangs(stand.tiers, ti + 1)) {
     wallD = tier.backD;
-    ceiling = next.frontY - OVERHANG_SLAB;
+    const o = standOverhangs(stand.tiers).find((x) => x.below === ti)!;
+    ceiling = overhangY(o, wallD);
   } else {
     // Front wall of the tier above, behind the walkway; its front row's floor sits on top.
     wallD = next.frontD - WALL_THICKNESS;

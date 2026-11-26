@@ -1,4 +1,4 @@
-import type { BlockBand, RoofConfig, StadiumConfig, StandConfig, TierConfig } from '../../data/types';
+import type { BlockBand, RoofConfig, StadiumConfig, StandConfig, StandTier, TierConfig } from '../../data/types';
 
 /*
  * St James' Park, Newcastle upon Tyne: an approximate model fitted to public data.
@@ -17,19 +17,21 @@ import type { BlockBand, RoofConfig, StadiumConfig, StandConfig, TierConfig } fr
  *   wrapping their shared corner under one big cantilever roof. East Stand is single-tiered;
  *   Gallowgate End (south) is one bank split by a walkway (see gallowgateProfile). The other
  *   three corners are filled to the same height as the stand next to them.
- * - Capacity: about 52,300 in published figures; the model has about 52,200 (square corners,
- *   0.5 m seats). It has no executive box levels, media seats or wide stair landings, so the
- *   close match is partly luck.
+ * - Capacity: the club gives 52,719 (August 2026); the model has about 53,300 (square corners,
+ *   0.5 m seats). It has no executive box levels, media seats or wide stair landings.
  * - Blocks: the club's own block map ("Seating Categories", newcastleunited.com, updated
  *   11 August 2026) gives every block's name and position. Its labels repeat between stands
  *   (an L7A in both the Milburn and the Leazes Stand), so each name here carries the stand
- *   prefix ticket sites use: MS (Milburn), LS (Leazes, including the Milburn-Leazes corner),
- *   ES (East), GS (Gallowgate), and NE / SE / SW for the Leazes-East, Strawberry (Gallowgate-
- *   East) and Gallowgate-Milburn corners, named by their real compass points.
- *   Where a stand's rows hold several bands of blocks (L1 in front of L2, LL7 in front of L7),
- *   the rows per band are estimates from the map's proportions: the map gives no row counts.
- *   Rows are lettered and start again at A in each band, also an assumption.
- * - Row counts, rakes and roof sizes are fitted estimates, not survey data.
+ *   prefix used on fan photo tags and ticket sites: MS (Milburn), LS (Leazes), ES (East),
+ *   GS (Gallowgate), and for the corners LWC, LEC, GEC and GWC (Leazes West, Leazes East,
+ *   Gallowgate East = Strawberry, Gallowgate West).
+ * - Rows and seat numbers: from 362 fan photos tagged with block, row and seat on
+ *   aviewfrommyseat.com (fetched 26 November 2026; see docs/research/st-james-park.md). Each
+ *   band's rows are the furthest-back row seen there, where the stand's shape allows; rows skip
+ *   I and O; the lowest levels use doubled letters (AA, BB...). Seats are numbered right to left
+ *   along each band, and Level 7 runs on from the Milburn Stand round to the Leazes End.
+ * - Rakes, the Level 7 overhang and roof heights are fitted estimates, not survey data. The big
+ *   roof is 64.5 m from the back wall to its front edge, a figure published for the real one.
  *
  * - Outside: glazed backs on the tall Milburn/Leazes stands, brick East Stand, clad Gallowgate.
  *   Chosen to read as St James' Park from the overview, not surveyed.
@@ -40,36 +42,70 @@ import type { BlockBand, RoofConfig, StadiumConfig, StandConfig, TierConfig } fr
 
 const tiers: TierConfig[] = [
   // Real rakes are not published. Rows steepen towards a 60 mm sightline target (the usual
-  // minimum), capped at 35°. The tall upper tier hits that cap, so its near-touchline
-  // clearance stays low (about 14–25 mm): check against real seat photos before relying on it.
-  { id: 1, name: 'Lower', firstSection: 101, rows: 32, rowDepth: 0.8, rakeDeg: 24, cValue: 60, setback: 0, lift: 1.0, parapet: 0.4, rowLabels: 'letters' },
-  // Upper tier ("Level 7") sits above the executive box levels and hangs out over the back of
-  // the lower tier. Lift checked against a fan photo from Leazes Level 7 row F: eye about
-  // 27-28 m above the pitch. The 4 m overhang is an estimate: no photo or plan shows it yet.
-  { id: 2, name: 'Upper', firstSection: 201, rows: 46, rowDepth: 0.8, rakeDeg: 30, cValue: 60, setback: -4, lift: 9.0, parapet: 1.0, rowLabels: 'letters' },
+  // minimum), capped at 35°. The Milburn/Leazes lower tier overrides this (see `tall`).
+  // Seats are numbered along the whole stand, right to left as seen from the seat, as fan photo
+  // tags show everywhere in the ground.
+  { id: 1, name: 'Lower', firstSection: 101, rows: 32, rowDepth: 0.8, rakeDeg: 24, cValue: 60, setback: 0, lift: 1.0, parapet: 0.4, rowLabels: 'letters', seatNumbers: { across: 'stand', from: 'right' } },
+  // Upper tier ("Level 7"): LL7 (5 rows) and L7 (23 rows, A-Y) in the Milburn Stand and the
+  // corner, from fan photo tags. It hangs far out over the lower tier: placed so that Leazes L7
+  // row F (the 14th row, behind L6 and LL7) is where a fan photo from that row puts it, about
+  // 40 m behind the goal line and 28 m up. That gives an overhang of about 16 m (an estimate: no
+  // plan shows it), with the underside rising over the rows beneath. A fan's "186 steps to row
+  // W" fits: row W is about 35 m up.
+  { id: 2, name: 'Upper', firstSection: 201, rows: 28, rowDepth: 0.8, rakeDeg: 30, cValue: 60, setback: -16.2, lift: 1.7, parapet: 1.0, rowLabels: 'letters', seatNumbers: { across: 'stand', from: 'right' } },
 ];
 
-const bigRoof: RoofConfig = { enabled: true, clearance: 6, cantilever: 43, slopeDeg: 3, thickness: 1.2 };
+// Cantilever 38.5 m from the back row: with the 26 m concourse behind it, 64.5 m in all.
+const bigRoof: RoofConfig = { enabled: true, clearance: 6, cantilever: 38.5, slopeDeg: 3, thickness: 1.2 };
 const lowRoof: RoofConfig = { enabled: true, clearance: 5, cantilever: 24, slopeDeg: 4, thickness: 0.8 };
 
 /**
- * Milburn, Leazes and their shared corner: same cross-section so they join seamlessly. The
- * deep concourse keeps the outer wall at the OSM depth (about 72 m) now the upper tier
- * starts further forward.
+ * Row labels as on St James' Park tickets: no I or O, so A-H, J-N, P-Z (row Y is the 23rd).
+ * `double` gives AA, BB, CC... (used at the front of the lowest levels); `from` starts that many
+ * letters in, for a band whose lettering runs on from the band in front. Past Z: AA, BB... (or
+ * AAA... when doubled), only where the model has more rows than any photo shows.
  */
-const tall = (name: string, lower: BlockBand[], upper: BlockBand[]): StandConfig => ({
-  name,
-  tiers: [
-    { id: 1, bands: lower },
-    { id: 2, bands: upper },
-  ],
-  roof: bigRoof,
-  shellDepth: 14,
-  facade: 'glass',
-});
+const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const rowLetters = (rows: number, { double = false, from = 0 } = {}): string[] =>
+  Array.from({ length: rows }, (_, k) => {
+    const i = from + k;
+    return LETTERS[i % LETTERS.length].repeat((double ? 2 : 1) + Math.floor(i / LETTERS.length));
+  });
 
 /** `rows` rows of blocks, named with the stand's ticket prefix, left to right as seen from the stand. */
-const band = (rows: number, prefix: string, blocks: string[]): BlockBand => ({ rows, blocks: blocks.map((b) => prefix + b) });
+const band = (rows: number, prefix: string, blocks: string[], rowLabels: string[] = rowLetters(rows)): BlockBand => ({
+  rows,
+  blocks: blocks.map((b) => prefix + b),
+  rowLabels,
+});
+
+/**
+ * Milburn, Leazes and their shared corner: the same cross-section so they join seamlessly.
+ * The lower tier is 51 rows (Leazes: L1 12, L2 22, L4 17, from fan photo tags), its back third
+ * under Level 7. Its sightline target is 20 mm, not 60: with Level 7 where the photo puts it, a
+ * 60 mm tier would climb above Level 7's front edge, and about 4,500 seats under it would lose
+ * the far side of the pitch. At 20 mm they keep it. The deep concourse keeps the outer wall at
+ * the OSM depth (about 73 m from the front row).
+ */
+const LOWER_ROWS = 51;
+const LOWER = { rows: LOWER_ROWS, rakeDeg: 16, cValue: 20 };
+/** Floor height of that tier's 13th row (row index 12), where the corner's lower tier starts. */
+const LOWER_ROW_13_Y = 5.24;
+const tall = (
+  name: string,
+  lower: BlockBand[],
+  upper: BlockBand[],
+  geometry: { lower?: Partial<StandTier>; upper?: Partial<StandTier> } = {},
+): StandConfig => ({
+  name,
+  tiers: [
+    { id: 1, ...LOWER, ...geometry.lower, bands: lower },
+    { id: 2, ...geometry.upper, bands: upper },
+  ],
+  roof: bigRoof,
+  shellDepth: 26,
+  facade: 'glass',
+});
 
 /** Single-tier stands; a corner gets the same cross-section as the stand it continues. */
 const eastProfile = (name: string, front: BlockBand, back: BlockBand): StandConfig => ({
@@ -137,54 +173,72 @@ export const stJamesPark: StadiumConfig = {
     // Left = Leazes end. L1 has no E block: the players' tunnel takes its place at halfway.
     // LL2 (Bar 1892) are the front rows of the L2 (Platinum Club) blocks; the directors' box
     // (L3B-L3D) sits between the L2 halves. LL7 are the front rows of the Level 7 blocks.
+    // Rows from fan photo tags: L1 AA-NN, LL2 to M, L2 to N, L4 doubled letters (seen to QQ, so
+    // the model's 13 is a little short). L2 and L4 tags mix single and doubled letters; the
+    // commoner one is used.
     N: tall(
       'Milburn Stand',
       [
-        band(8, 'MS', ['L1I', 'L1H', 'L1G', 'L1F', 'L1D', 'L1C', 'L1B', 'L1A']),
-        band(4, 'MS', ['LL2H', 'LL2G', 'LL2F', 'LL2E', 'LL2D', 'LL2C', 'LL2B', 'LL2A']),
-        band(14, 'MS', ['L2H', 'L2G', 'L2F', 'L2E', 'L3D', 'L3C', 'L3B', 'L2D', 'L2C', 'L2B', 'L2A']),
-        band(6, 'MS', ['L4H', 'L4G', 'L4F', 'L4E', 'L4D', 'L4C', 'L4B', 'L4A']),
+        band(13, 'MS', ['L1I', 'L1H', 'L1G', 'L1F', 'L1D', 'L1C', 'L1B', 'L1A'], rowLetters(13, { double: true })),
+        band(12, 'MS', ['LL2H', 'LL2G', 'LL2F', 'LL2E', 'LL2D', 'LL2C', 'LL2B', 'LL2A']),
+        band(13, 'MS', ['L2H', 'L2G', 'L2F', 'L2E', 'L3D', 'L3C', 'L3B', 'L2D', 'L2C', 'L2B', 'L2A']),
+        band(13, 'MS', ['L4H', 'L4G', 'L4F', 'L4E', 'L4D', 'L4C', 'L4B', 'L4A'], rowLetters(13, { double: true })),
       ],
       [
-        band(6, 'MS', ['LL7H', 'LL7G', 'LL7F', 'LL7E', 'LL7D', 'LL7C', 'LL7B', 'LL7A']),
-        band(40, 'MS', ['L7H', 'L7G', 'L7F', 'L7E', 'L7D', 'L7C', 'L7B', 'L7A']),
+        band(5, 'MS', ['LL7H', 'LL7G', 'LL7F', 'LL7E', 'LL7D', 'LL7C', 'LL7B', 'LL7A']),
+        band(23, 'MS', ['L7H', 'L7G', 'L7F', 'L7E', 'L7D', 'L7C', 'L7B', 'L7A']),
       ],
     ),
-    // Leazes Stand numbering. L7C-L7E: the singing section from 2026-27, next to the away end.
+    // Leazes West Corner (LWC). L7C-L7E: the singing section from 2026-27, next to the away end.
+    // No L1 here, so its lower tier is the Leazes End's without the 12 L1 rows: it starts 12 rows
+    // further back and higher, behind a front wall. Level 7 numbers run on from the Milburn Stand.
     NE: tall(
-      'Milburn–Leazes corner',
-      [band(18, 'LS', ['L2D', 'L2C', 'L2B', 'L2A']), band(14, 'LS', ['L4F', 'L4E', 'L4D', 'L4C', 'L4B', 'L4A'])],
-      [band(6, 'LS', ['LL7E', 'LL7D', 'LL7C', 'LL7B', 'LL7A']), band(40, 'LS', ['L7E', 'L7D', 'L7C', 'L7B', 'L7A'])],
+      'Leazes West Corner',
+      [band(22, 'LWC', ['L2D', 'L2C', 'L2B', 'L2A']), band(17, 'LWC', ['L4F', 'L4E', 'L4D', 'L4C', 'L4B', 'L4A'])],
+      [band(5, 'LWC', ['LL7E', 'LL7D', 'LL7C', 'LL7B', 'LL7A']), band(23, 'LWC', ['L7E', 'L7D', 'L7C', 'L7B', 'L7A'])],
+      {
+        lower: { rows: LOWER_ROWS - 12, setback: 12 * 0.8, lift: LOWER_ROW_13_Y },
+        upper: { seatNumbers: { across: 'stand', from: 'right', continueFrom: 'N' } },
+      },
     ),
-    // Left = East Stand end. No L7G or L7I on the club's map. L6: Park Grill, in front of Level 7.
+    // Left = East Stand end. No L7G or L7I on the club's map. L1 rows run on from the front
+    // blocks (AA-FF) to the ones behind (GG-MM). L6 (Park Grill): three rows in front of LL7, so
+    // this stand's Level 7 starts three rows further forward and lower than the corner's.
     E: tall(
       'Leazes End',
       [
-        band(6, 'LS', ['L1F', 'L1E', 'L1D', 'L1C', 'L1B', 'L1A']),
-        band(7, 'LS', ['L1L', 'L1K', 'L1J', 'L1I', 'L1H', 'L1G']),
-        band(11, 'LS', ['L2S', 'L2R', 'L2Q', 'L2SB', 'L2P', 'L2N', 'L2M']),
-        band(8, 'LS', ['L4X', 'L4W', 'L4V', 'L4U', 'L4T']),
+        band(6, 'LS', ['L1F', 'L1E', 'L1D', 'L1C', 'L1B', 'L1A'], rowLetters(6, { double: true })),
+        band(6, 'LS', ['L1L', 'L1K', 'L1J', 'L1I', 'L1H', 'L1G'], rowLetters(6, { double: true, from: 6 })),
+        band(22, 'LS', ['L2S', 'L2R', 'L2Q', 'L2SB', 'L2P', 'L2N', 'L2M']),
+        band(17, 'LS', ['L4X', 'L4W', 'L4V', 'L4U', 'L4T']),
       ],
       [
         band(3, 'LS', ['L6E', 'L6D', 'L6C', 'L6B', 'L6A']),
-        band(6, 'LS', ['LL7M', 'LL7L', 'LL7K', 'LL7J', 'LL7H', 'LL7F']),
-        band(37, 'LS', ['L7M', 'L7L', 'L7K', 'L7J', 'L7H', 'L7F']),
+        band(5, 'LS', ['LL7M', 'LL7L', 'LL7K', 'LL7J', 'LL7H', 'LL7F']),
+        band(23, 'LS', ['L7M', 'L7L', 'L7K', 'L7J', 'L7H', 'L7F']),
       ],
+      { upper: { rows: 31, setback: -16.2 - 3 * 0.8, lift: 0.1, seatNumbers: { across: 'stand', from: 'right', continueFrom: 'NE' } } },
     ),
-    // Left = East Stand side. The map's H and J sit one behind the other at the Leazes end.
-    SE: eastProfile('Leazes–East corner', band(10, 'NE', ['F', 'G', 'H', 'J']), band(18, 'NE', ['A', 'B', 'C', 'D', 'E'])),
-    // Left = Gallowgate end. No G block on the map.
-    S: eastProfile('East Stand', band(11, 'ES', ['F', 'E', 'D', 'C', 'B', 'A']), band(17, 'ES', ['M', 'L', 'K', 'J', 'I', 'H'])),
-    // Left = Gallowgate side. Several blocks have safe standing.
-    SW: eastProfile('Strawberry Corner', band(10, 'SE', ['B', 'A']), band(18, 'SE', ['F', 'E', 'D', 'C'])),
+    // Leazes East Corner (LEC). Left = East Stand side. The map's H and J sit one behind the
+    // other at the Leazes end. Front blocks lettered AA-MM, the back ones A-R (photo tags).
+    SE: eastProfile('Leazes East Corner', band(12, 'LEC', ['F', 'G', 'H', 'J'], rowLetters(12, { double: true })), band(16, 'LEC', ['A', 'B', 'C', 'D', 'E'])),
+    // Left = Gallowgate end. No G block on the map. Photo tags reach row R in A-F and row W in
+    // H-M ("East Stand Upper"), 37 rows in all: the model's 28-row East Stand is too shallow.
+    S: eastProfile('East Stand', band(12, 'ES', ['F', 'E', 'D', 'C', 'B', 'A']), band(16, 'ES', ['M', 'L', 'K', 'J', 'I', 'H'])),
+    // Strawberry Corner, the Gallowgate East Corner (GEC). Left = Gallowgate side. Several
+    // blocks have safe standing. Back blocks to row U (photo tags).
+    SW: eastProfile('Gallowgate East Corner', band(9, 'GEC', ['B', 'A']), band(19, 'GEC', ['F', 'E', 'D', 'C'])),
     // Left = Milburn end. Four bands of blocks; Q (row A behind the balcony wall, from a fan
-    // photo) starts the third. No O block.
+    // photo) starts the third. No O block. Lower blocks lettered AA... (seen to JJ in F); the
+    // back blocks R-V to row U, which a fan calls the back row.
     W: gallowgateProfile(
       'Gallowgate End',
-      [band(7, 'GS', ['E', 'D', 'C', 'B', 'A']), band(7, 'GS', ['J', 'I', 'H', 'G', 'F'])],
-      [band(17, 'GS', ['Q', 'P', 'N', 'M', 'L', 'K']), band(21, 'GS', ['V', 'U', 'T', 'S', 'R'])],
+      [band(5, 'GS', ['E', 'D', 'C', 'B', 'A'], rowLetters(5, { double: true })), band(9, 'GS', ['J', 'I', 'H', 'G', 'F'], rowLetters(9, { double: true }))],
+      [band(19, 'GS', ['Q', 'P', 'N', 'M', 'L', 'K']), band(19, 'GS', ['V', 'U', 'T', 'S', 'R'])],
     ),
-    // Left = Milburn side. One front block (A) round the corner, B-E behind the walkway.
-    NW: gallowgateProfile('Gallowgate–Milburn corner', [band(14, 'SW', ['A'])], [band(38, 'SW', ['E', 'D', 'C', 'B'])]),
+    // Gallowgate West Corner (GWC). Left = Milburn side. One front block (A, doubled letters)
+    // round the corner, B-E behind the walkway. Photo tags reach row Y in B-E; the model's 38
+    // rows run on past Z.
+    NW: gallowgateProfile('Gallowgate West Corner', [band(14, 'GWC', ['A'], rowLetters(14, { double: true }))], [band(38, 'GWC', ['E', 'D', 'C', 'B'])]),
   },
 };

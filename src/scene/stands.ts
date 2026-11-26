@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { bowlPieces } from '../data/bowlPath';
-import { OVERHANG_SLAB, overhangs, WALL_THICKNESS } from '../data/overhang';
+import { OVERHANG_SLAB, overhangs, overhangY, standOverhangs, WALL_THICKNESS } from '../data/overhang';
 import type { SeatTuple, ShellSpec, StadiumData, StandShell } from '../data/types';
 import { buildApron, FacadeBuilder } from './exterior';
 import { pieceBand, pieceCap, QuadBuilder, type RingEdge, type V3 } from './geo';
@@ -101,11 +101,11 @@ function standOutline(stand: StandShell): Array<[number, number]> {
   stand.tiers.forEach((t, i) => {
     const prev = i > 0 ? stand.tiers[i - 1] : null;
     const parapetY = t.frontY + t.parapet;
-    if (prev && overhangs(stand.tiers, i)) {
-      // Up the lower tier's back wall, forward along the underside, up the front wall.
+    const over = prev && overhangs(stand.tiers, i) ? standOverhangs(stand.tiers).find((o) => o.below === i - 1) : undefined;
+    if (prev && over) {
+      // Up the lower tier's back wall, forward and down along the underside, up the front wall.
       const wallD = t.frontD - WALL_THICKNESS;
-      const soffitY = t.frontY - OVERHANG_SLAB;
-      pts.push([prev.backD, soffitY], [wallD, soffitY], [wallD, parapetY], [t.frontD, parapetY]);
+      pts.push([prev.backD, overhangY(over, prev.backD)], [wallD, over.y], [wallD, parapetY], [t.frontD, parapetY]);
     } else {
       const baseY = prev ? prev.topY : 0;
       const wallD = Math.max(prev ? prev.backD : -Infinity, t.frontD - WALL_THICKNESS);
@@ -145,9 +145,11 @@ export function buildShell(shell: ShellSpec): THREE.Group {
     const { tiers } = stand;
     const band = (a: RingEdge, b: RingEdge) => pieceBand(shape, piece, a, b);
 
+    const overs = standOverhangs(tiers);
     tiers.forEach((tier, i) => {
       const prev = i > 0 ? tiers[i - 1] : null;
       const over = overhangs(tiers, i);
+      const o = over ? overs.find((x) => x.below === i - 1) : undefined;
       // An overhanging tier's front wall hangs down to the flat underside over the rows below.
       const baseY = !prev ? 0 : over ? tier.frontY - OVERHANG_SLAB : prev.topY;
       const topY = tier.frontY + tier.parapet;
@@ -155,9 +157,11 @@ export function buildShell(shell: ShellSpec): THREE.Group {
       walls.push(band({ d: wallD, y: baseY }, { d: wallD, y: topY }));
       walls.push(band({ d: wallD, y: topY }, { d: tier.frontD, y: topY }));
       walls.push(band({ d: tier.frontD, y: topY }, { d: tier.frontD, y: tier.frontY }));
-      if (prev && over) {
-        soffits.push(band({ d: prev.backD, y: baseY }, { d: wallD, y: baseY }));
-        soffits.push(band({ d: prev.backD, y: prev.topY }, { d: prev.backD, y: baseY }));
+      if (prev && o) {
+        // The underside rises going back with the tier above.
+        const backY = overhangY(o, prev.backD);
+        soffits.push(band({ d: prev.backD, y: backY }, { d: wallD, y: baseY }));
+        soffits.push(band({ d: prev.backD, y: prev.topY }, { d: prev.backD, y: backY }));
       } else if (prev) {
         floors.push(band({ d: prev.backD, y: baseY }, { d: wallD, y: baseY }));
       }

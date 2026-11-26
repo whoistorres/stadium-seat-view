@@ -100,7 +100,7 @@ src/
 | `bowl.aisleWidth` | Minimum stair aisle between sections |
 | `bowl.seatInset` | Seat position measured back from the front edge of its step |
 | `bowl.sectionsPerZone` | Sections per sideline, end and corner, per tier |
-| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front; negative hangs this tier out over the back rows of the tier below, with a flat underside 1 m under its first tread that must clear the back row by 2.4 m), `lift` (height above the tier below), `parapet`, `rowLabels` (optional: `'numbers'` by default, `'letters'` for A–Z then AA, BB…, or an array with every row's label, e.g. to skip I and O), `seatNumbers` (optional, see *Seat numbers*) |
+| `tiers[]` | One entry per tier, any number of them: `id` (rising front to back), `name`, `firstSection` (101, 201…), `rows`, `rowDepth`, `rakeDeg` (minimum rake), `cValue` (sightline target in mm, optional), `setback` (walkway in front; negative hangs this tier out over the back rows of the tier below, with an underside that starts 1 m under its first tread and rises going back at the rake of its first rows; it must clear every row beneath it by 2.4 m), `lift` (height of its first tread above the back row of the tier below; may be negative for a tier hanging out over a tall one), `parapet`, `rowLabels` (optional: `'numbers'` by default, `'letters'` for A–Z then AA, BB…, or an array with every row's label, e.g. to skip I and O), `seatNumbers` (optional, see *Seat numbers*) |
 | `roof` | `enabled`, `clearance` above the top row, `cantilever` reach, `slopeDeg` (negative = falls towards the pitch), `thickness` |
 | `shellDepth` | Concourse/facade depth behind the top tier |
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
@@ -140,7 +140,7 @@ stands: {
 E: { tiers: [{ id: 1, blocks: ['LSL1L', 'LSL1K', 'LSL1J'], rowLabels: 'letters' }, { id: 2 }] },
 ```
 
-**Bands of blocks.** Where one tier's rows hold several rows of blocks, one behind the other (a band of `L1` blocks in front of a band of `L2` blocks), give the tier `bands` instead, front to back. Each band has its own `rows` and `blocks`; the rows must add up to the tier's. The tier keeps its shape, rake and sightlines: the bands only divide its rows. Row numbers and labels start again in each band. A lone block in a square corner covers both legs, with an aisle up the diagonal:
+**Bands of blocks.** Where one tier's rows hold several rows of blocks, one behind the other (a band of `L1` blocks in front of a band of `L2` blocks), give the tier `bands` instead, front to back. Each band has its own `rows` and `blocks`; the rows must add up to the tier's. The tier keeps its shape, rake and sightlines: the bands only divide its rows. Row numbers and labels start again in each band; a band can give its own `rowLabels` (for lettering that runs on from the band in front, say GG, HH… behind AA–FF). A lone block in a square corner covers both legs, with an aisle up the diagonal:
 
 ```ts
 E: { tiers: [{ id: 1, bands: [{ rows: 6, blocks: ['LSL1F', 'LSL1E'] }, { rows: 26, blocks: ['LSL2S', 'LSL2R', 'LSL2Q'] }] }, { id: 2 }] },
@@ -153,9 +153,11 @@ E: { tiers: [{ id: 1, bands: [{ rows: 6, blocks: ['LSL1F', 'LSL1E'] }, { rows: 2
 | `across` | `'block'` (default): numbering starts again in each block. `'stand'`: it runs on along the stand's whole row, block after block |
 | `first` | Number of the first seat (default 1) |
 | `from` | `'left'` (default) or `'right'`: which end the first seat is at, as seen sitting in the stand facing the pitch |
+| `continueFrom` | A neighbouring stand (`'N'`, `'NE'`…) whose numbering this stand carries on, e.g. round a corner: each row starts one after the highest number in the matching row there. Bands are matched from the back of the tier; a band with no match starts at 1. Only on a stand's tier, and not with `first` |
 
 ```ts
 N: { tiers: [{ id: 1, blocks: ['A', 'B', 'C'], seatNumbers: { across: 'stand', from: 'right', first: 101 } }] },
+NE: { tiers: [{ id: 1, blocks: ['D', 'E'], seatNumbers: { across: 'stand', from: 'right', continueFrom: 'N' } }] },
 ```
 
 Section numbers still run on within each tier, going round the bowl from the south side and skipping stands that don't have that tier and sections that have a block name. Stands with the same tier settings share one cross-section and join seamlessly. Where neighbouring stands differ, or one is missing, each stand's end is closed off with an end wall, and the same goes for roofs.
