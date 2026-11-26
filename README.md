@@ -91,6 +91,7 @@ src/
 | `bowl.cornerRadius` | Radius of the front-row line at the corners. Larger = rounder bowl, but the corner front row also swings in towards the corner flag (14 m keeps it 6.2 m away; 22 m would be 2.9 m) |
 | `bowl.corners` | `'round'` (default) or `'square'`. Square corners are filled in: each stand's rows run straight on into the corner and meet the next stand's rows at the diagonal, with an aisle up it. Corner sections split evenly between the two legs, so give square corners an even section count |
 | `bowl.seatSpacing` | Centre-to-centre seat width |
+| `bowl.sightlines` | `'shared'` (default) or `'stand'`: what each stand's rake is designed for (see *Rake and sightlines*) |
 | `bowl.aisleWidth` | Minimum stair aisle between sections |
 | `bowl.seatInset` | Seat position measured back from the front edge of its step |
 | `bowl.sectionsPerZone` | Sections per sideline, end and corner, per tier |
@@ -98,6 +99,8 @@ src/
 | `roof` | `enabled`, `clearance` above the top row, `cantilever` reach, `slopeDeg` (negative = falls towards the pitch), `thickness` |
 | `shellDepth` | Concourse/facade depth behind the top tier |
 | `eyeHeight` | Seat-view camera height above the step the seat stands on (1.2 m) |
+| `exterior.facade` | Outer wall finish for every stand: `'concrete'` (default, plain grey), `'glass'` (curtain wall with floor bands and mullions, windows lit in the evening), `'panels'` (light cladding with joint lines) or `'brick'`. Drawn in flat colours for the overview |
+| `exterior.apron` | Width of the paved apron round the outer walls, metres (default 15; `0` for none) |
 | `stands` | Optional per-stand overrides, see below |
 
 **Per-stand overrides.** The bowl has eight pieces: sidelines `N`, `S`, ends `E`, `W` and corners `NE`, `NW`, `SE`, `SW`. By default every piece gets every tier, the stadium-wide roof and `sectionsPerZone`. `stands` changes that piece by piece:
@@ -121,6 +124,7 @@ stands: {
 | `shellDepth` | Concourse/facade depth behind this stand |
 | `runoff` | `N`, `S`, `E`, `W` only: gap from the touchline or goal line to this stand. Different values on opposite sides move the bowl off-centre |
 | `corner` | `NE`, `NW`, `SE`, `SW` only: `'round'` or `'square'` for this corner, overriding `bowl.corners` |
+| `facade` | This stand's outer wall finish, overriding `exterior.facade` |
 
 **Real block names.** Give a stand's tier a `blocks` list to use the venue's own block names instead of numbers, left to right as seen sitting in that stand facing the pitch. The list sets the section count; in a square corner the first half goes on the leg next to the previous stand. Names must be unique across the stadium and contain no spaces or hyphens (they become part of the seat ID):
 
@@ -144,7 +148,7 @@ In PowerShell: `$env:STADIUM_CONFIG='four-stands'; npm run dev`. This rewrites `
 | `four-stands` | Example ground with four different stands and a fourth tier |
 | `st-james-park` | St James' Park, Newcastle: an approximate model fitted to OpenStreetMap and published capacity. See the notes at the top of [the file](src/config/venues/stJamesPark.ts) for what is measured and what is estimated |
 
-**Rake and sightlines.** Each row rises at least `rowDepth × tan(rakeDeg)`. With `cValue` set (default 90 mm), each riser is made tall enough that the sightline from that row to the nearest point of the pitch passes at least that far above the eyes of the person in front: the standard stadium sightline method, solved row by row. Rakes therefore steepen slightly towards the back: about 24°→31° lower, 31°→32° middle, 34°→35° upper, capped at 35°. The governing distance is the closest the front row gets to the pitch anywhere, which is at the corners. All stands use this same distance, so stands with the same tier settings come out with the same cross-section.
+**Rake and sightlines.** Each row rises at least `rowDepth × tan(rakeDeg)`. With `cValue` set (default 90 mm), each riser is made tall enough that the sightline from that row to the nearest point of the pitch passes at least that far above the eyes of the person in front: the standard stadium sightline method, solved row by row. Rakes therefore steepen slightly towards the back: about 24°→31° lower, 31°→32° middle, 34°→35° upper, capped at 35°. By default (`bowl.sightlines: 'shared'`) the governing distance is the closest the front row gets to the pitch anywhere, usually at the corners. All stands use this same distance, so stands with the same tier settings come out with the same cross-section and join seamlessly. With `'stand'`, each side or end is designed for its own touchline or goal line and each corner follows its nearer neighbour. That suits grounds of separate stands (the four-stands example uses it): a stand set further back gets a gentler rake. Where neighbours then differ, the join is closed with an end wall.
 
 Rendering code never reads the config, only the generated JSON, so changing values and restarting the dev server is all it takes.
 
@@ -161,7 +165,9 @@ Rendering code never reads the config, only the generated JSON, so changing valu
   seat: { spacing, inset, aisle, eyeHeight },     // used to build steps under the seats
   shell: {                                        // generic walls/roof; null = none
     shape: { sx, sz, r0, cx?, cz?, squareCorners? }, // front-row line: rectangle with round (or listed square) corners
-    stands: [StandShell | null, ...]              // 8 entries: S, SE, E, NE, N, NW, W, SW; null = no stand
+    stands: [StandShell | null, ...],             // 8 entries: S, SE, E, NE, N, NW, W, SW; null = no stand
+                                                  // StandShell.facade?: outer wall finish (default concrete)
+    apron?: 15                                    // paved apron width round the outer walls
   } | null,
   sections: [{
     id: "214",                                    // number, or the real block name, e.g. "GSQ"

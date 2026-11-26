@@ -16,6 +16,8 @@ interface Look {
   spots: number;
   fixtures: number;
   boards: number;
+  /** Glow of lit windows in glass facades. */
+  windows: number;
   exposure: number;
 }
 
@@ -33,6 +35,7 @@ const LOOKS: Record<TimeOfDay, Look> = {
     spots: 0,
     fixtures: 0.15,
     boards: 0.35,
+    windows: 0,
     exposure: 1,
   },
   // Under lights: a near-overhead cool key stands in for the combined roof floodlights,
@@ -49,6 +52,7 @@ const LOOKS: Record<TimeOfDay, Look> = {
     keyDir: [0.12, 1, -0.2],
     spots: 1.3,
     fixtures: 5,
+    windows: 0.6,
     boards: 1.2,
     exposure: 1.1,
   },
@@ -158,11 +162,19 @@ export class Lighting {
    * (roof top, facade). The evening key light stands in for the floodlights and would otherwise
    * light the outside of the building as if it were daytime.
    */
-  attach(fixtures: THREE.MeshStandardMaterial | null, boards: THREE.MeshStandardMaterial[], exterior: THREE.MeshStandardMaterial[]): void {
+  attach(
+    fixtures: THREE.MeshStandardMaterial | null,
+    boards: THREE.MeshStandardMaterial[],
+    exterior: THREE.MeshStandardMaterial[],
+    windows: THREE.MeshStandardMaterial[] = [],
+  ): void {
     this.fixtures = fixtures;
     this.boards = boards;
     this.exterior = exterior.map((material) => ({ material, day: material.color.clone() }));
+    this.windows = windows;
   }
+
+  private windows: THREE.MeshStandardMaterial[] = [];
 
   setTime(time: TimeOfDay): void {
     const L = LOOKS[time];
@@ -182,6 +194,7 @@ export class Lighting {
     for (const s of this.spots) s.intensity = L.spots;
     if (this.fixtures) this.fixtures.emissiveIntensity = L.fixtures;
     for (const b of this.boards) b.emissiveIntensity = L.boards;
+    for (const w of this.windows) w.emissiveIntensity = L.windows;
     for (const e of this.exterior) e.material.color.copy(e.day).multiplyScalar(time === 'evening' ? 0.28 : 1);
     this.renderer.toneMappingExposure = L.exposure;
     this.renderer.shadowMap.needsUpdate = true;

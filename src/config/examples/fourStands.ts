@@ -10,10 +10,13 @@ import { stadiumConfig } from '../stadiumConfig.ts';
  * - East: two tiers, further from the goal line, no roof
  * - West: one shallow tier close to the goal line
  * - Corners: only the south-east is filled; the others are open
+ * - Sightlines per stand, so the East Stand's rake suits its 12 m gap
  */
 export const fourStandsExample: StadiumConfig = {
   ...stadiumConfig,
   name: 'Four Stands (example)',
+  // Separate stands: each designs its rake for its own distance to the pitch.
+  bowl: { ...stadiumConfig.bowl, sightlines: 'stand' },
   // A fourth tier, used only by the main stand. Tier ids just need to rise from front to back.
   tiers: [
     ...stadiumConfig.tiers,

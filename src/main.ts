@@ -105,11 +105,13 @@ async function boot(): Promise<void> {
   pitch.getObjectByName('ad-boards')?.traverse((o) => {
     if (o instanceof THREE.Mesh) boards.push(o.material as THREE.MeshStandardMaterial);
   });
-  const exterior = ['roof-slab', 'facade']
-    .map((name) => ctx.scene.getObjectByName(name))
-    .filter((o): o is THREE.Mesh => o instanceof THREE.Mesh)
-    .map((o) => o.material as THREE.MeshStandardMaterial);
-  lighting.attach(roof?.fixtures ?? null, boards, exterior);
+  const materialsOf = (names: string[]) =>
+    names
+      .map((name) => ctx.scene.getObjectByName(name))
+      .filter((o): o is THREE.Mesh => o instanceof THREE.Mesh)
+      .map((o) => o.material as THREE.MeshStandardMaterial);
+  const exterior = materialsOf(['roof-slab', 'facade', 'facade-cladding', 'apron']);
+  lighting.attach(roof?.fixtures ?? null, boards, exterior, materialsOf(['facade-glass']));
 
   await step(`Placing ${stadium.totalSeats.toLocaleString('en')} seats and the crowd…`);
   const seats = new SeatLayer(stadium);

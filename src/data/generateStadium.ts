@@ -2,6 +2,7 @@ import { bowlPieces, pieceLength, pointOnPiece, type Piece } from './bowlPath.ts
 import { standOverhangs } from './overhang.ts';
 import type {
   BowlShape,
+  FacadeStyle,
   RoofConfig,
   RoofSpec,
   Row,
@@ -12,6 +13,7 @@ import type {
   StadiumConfig,
   StadiumData,
   StandShell,
+  Side,
   StandTier,
   TierConfig,
   TierLayout,
@@ -68,16 +70,35 @@ export function bowlShape(cfg: StadiumConfig): BowlShape {
  * bring the front row much closer there. A square corner stays further away than either stand.
  */
 export function nearestPitchGap(cfg: StadiumConfig): number {
+  return Math.min(...Object.values(pieceGaps(cfg)));
+}
+
+/** Closest each piece of the bowl's front row gets to the pitch (Infinity for a square corner). */
+function pieceGaps(cfg: StadiumConfig): Record<Side, number> {
   const r = runoffs(cfg);
   const { r0, squareCorners: square = [] } = bowlShape(cfg);
-  let gap = Math.min(r.S, r.N, r.E, r.W);
-  const corners = [['SE', r.E, r.S], ['NE', r.E, r.N], ['NW', r.W, r.N], ['SW', r.W, r.S]] as const;
-  for (const [corner, end, side] of corners) {
-    if (square.includes(corner)) continue;
-    const flagToArcCentre = Math.hypot(Math.max(0, r0 - end), Math.max(0, r0 - side));
-    gap = Math.min(gap, r0 - flagToArcCentre);
-  }
-  return gap;
+  const corner = (side: (typeof CORNERS)[number], end: number, touch: number) => {
+    if (square.includes(side)) return Infinity;
+    const flagToArcCentre = Math.hypot(Math.max(0, r0 - end), Math.max(0, r0 - touch));
+    return r0 - flagToArcCentre;
+  };
+  return {
+    S: r.S, N: r.N, E: r.E, W: r.W,
+    SE: corner('SE', r.E, r.S), NE: corner('NE', r.E, r.N), NW: corner('NW', r.W, r.N), SW: corner('SW', r.W, r.S),
+  };
+}
+
+/**
+ * Distance each piece's rake is designed for. 'shared' (default): the nearest gap anywhere,
+ * so stands with the same tier settings get the same cross-section and join seamlessly.
+ * 'stand': each straight stand its own touchline or goal line; a corner the nearer of its two
+ * neighbours (or its own gap, if closer), so it joins that neighbour seamlessly.
+ */
+export function sightlineFocal(cfg: StadiumConfig, side: Side): number {
+  const gaps = pieceGaps(cfg);
+  if ((cfg.bowl.sightlines ?? 'shared') === 'shared') return Math.min(...Object.values(gaps));
+  if (side.length === 1) return gaps[side];
+  return Math.min(gaps[side], gaps[side[0] as Side], gaps[side[1] as Side]);
 }
 
 /** Steepest rake allowed by common stadium safety guidance. */
@@ -92,9 +113,12 @@ const MAX_RAKE_DEG = 35;
  * is the minimum and MAX_RAKE_DEG the cap. The focal distance is the stadium-wide nearest
  * gap, so stands that share tier settings also share a cross-section and meet cleanly.
  */
-export function tierLayouts(cfg: StadiumConfig, tiers: TierConfig[] = cfg.tiers): Array<TierLayout & { rowY: number[] }> {
+export function tierLayouts(
+  cfg: StadiumConfig,
+  tiers: TierConfig[] = cfg.tiers,
+  focal = nearestPitchGap(cfg),
+): Array<TierLayout & { rowY: number[] }> {
   const out: Array<TierLayout & { rowY: number[] }> = [];
-  const focal = nearestPitchGap(cfg);
   let prevBackD = 0;
   let prevTopY = 0;
   for (const t of tiers) {
@@ -150,6 +174,7 @@ export interface ResolvedStand {
   blocks: Array<string[] | undefined>;
   roof: RoofConfig;
   shellDepth: number;
+  facade: FacadeStyle;
 }
 
 function withoutUndefined<T extends object>(o: T): Partial<T> {
@@ -175,6 +200,7 @@ export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(b
       blocks: list.map((t) => t.blocks),
       roof: o?.roof === undefined ? cfg.roof : (o.roof ?? { ...cfg.roof, enabled: false }),
       shellDepth: o?.shellDepth ?? cfg.shellDepth,
+      facade: o?.facade ?? cfg.exterior?.facade ?? 'concrete',
     };
   });
 }
@@ -260,10 +286,11 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
 
   // Stands with the same tier settings share one cross-section (and so meet without a step).
   const cache = new Map<string, Array<TierLayout & { rowY: number[] }>>();
-  const layouts = stands.map((st) => {
+  const layouts = stands.map((st, pi) => {
     if (!st) return null;
-    const key = JSON.stringify(st.tiers);
-    if (!cache.has(key)) cache.set(key, tierLayouts(cfg, st.tiers));
+    const focal = sightlineFocal(cfg, pieces[pi].side);
+    const key = JSON.stringify([st.tiers, focal]);
+    if (!cache.has(key)) cache.set(key, tierLayouts(cfg, st.tiers, focal));
     return cache.get(key)!;
   });
 
@@ -352,8 +379,11 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
         })),
         outerD: round(top.backD + st.shellDepth, 3),
         roof: roofSpec(st.roof, st.shellDepth, top),
+        // Written only when it differs from the default, so plain stadiums keep their old JSON.
+        ...(st.facade !== 'concrete' ? { facade: st.facade } : {}),
       };
     }),
+    ...(cfg.exterior?.apron !== undefined ? { apron: cfg.exterior.apron } : {}),
   };
 
   return {

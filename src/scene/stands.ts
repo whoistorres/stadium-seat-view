@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { bowlPieces } from '../data/bowlPath';
 import { OVERHANG_SLAB, overhangs, WALL_THICKNESS } from '../data/overhang';
 import type { SeatTuple, ShellSpec, StadiumData, StandShell } from '../data/types';
+import { buildApron, FacadeBuilder } from './exterior';
 import { pieceBand, pieceCap, QuadBuilder, type RingEdge, type V3 } from './geo';
 
 const TREAD: V3 = [0.6, 0.61, 0.63];
@@ -136,6 +137,7 @@ export function buildShell(shell: ShellSpec): THREE.Group {
   const floors: THREE.BufferGeometry[] = [];
   const facade: THREE.BufferGeometry[] = [];
   const soffits: THREE.BufferGeometry[] = [];
+  const styled = new FacadeBuilder();
 
   pieces.forEach((piece, pi) => {
     const stand = stands[pi];
@@ -167,7 +169,8 @@ export function buildShell(shell: ShellSpec): THREE.Group {
     const backTopY = backWallTop(stand);
     const facadeTopY = roof ? roof.outerY + roof.thickness : backTopY;
     facade.push(band({ d: top.backD, y: top.topY }, { d: top.backD, y: backTopY }));
-    facade.push(band({ d: stand.outerD, y: facadeTopY }, { d: stand.outerD, y: 0 }));
+    if ((stand.facade ?? 'concrete') === 'concrete') facade.push(band({ d: stand.outerD, y: facadeTopY }, { d: stand.outerD, y: 0 }));
+    else styled.add(shape, piece, stand.outerD, facadeTopY, stand.facade!);
     if (!roof) facade.push(band({ d: top.backD, y: backTopY }, { d: stand.outerD, y: backTopY }));
 
     // Close the ends where the neighbouring stand has a different cross-section, or none.
@@ -194,5 +197,8 @@ export function buildShell(shell: ShellSpec): THREE.Group {
   add(facade, new THREE.MeshStandardMaterial({ color: 0xb9bec6, roughness: 0.85, side: THREE.DoubleSide }), 'facade', true);
   // Underside of overhanging tiers and the back wall beneath: a lighter ceiling over the rows.
   add(soffits, new THREE.MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.9 }), 'overhangs', true);
+  for (const m of styled.build().meshes) group.add(m);
+  const apron = buildApron(shell);
+  if (apron) group.add(apron);
   return group;
 }

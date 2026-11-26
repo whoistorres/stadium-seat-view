@@ -87,7 +87,16 @@ export interface StandConfig {
   runoff?: number;
   /** Corners only: 'square' carries both neighbouring stands' rows straight into the corner. */
   corner?: CornerStyle;
+  /** Look of this stand's outer wall; falls back to `exterior.facade`. */
+  facade?: FacadeStyle;
 }
+
+/**
+ * Outer wall finish, drawn in flat colours. 'concrete' (default): plain grey. 'glass': curtain
+ * wall with floor bands and mullions, lit at night. 'panels': light cladding with joint lines.
+ * 'brick': brick with lighter courses.
+ */
+export type FacadeStyle = 'concrete' | 'glass' | 'panels' | 'brick';
 
 /**
  * 'round': rows curve round the corner (radius grows with each row). 'square': rows run
@@ -103,6 +112,12 @@ export interface StadiumConfig {
     cornerRadius: number;
     /** Shape of every corner unless a corner stand sets its own `corner`. Default 'round'. */
     corners?: CornerStyle;
+    /**
+     * What each stand's rake is designed for. 'shared' (default): the nearest point the front row
+     * gets to the pitch anywhere, so matching stands join seamlessly. 'stand': each stand its own
+     * touchline or goal line (corners follow their nearer neighbour), for grounds of separate stands.
+     */
+    sightlines?: 'shared' | 'stand';
     /** Centre-to-centre seat spacing along a row. */
     seatSpacing: number;
     /** Stair aisle width between neighbouring sections. */
@@ -118,6 +133,13 @@ export interface StadiumConfig {
   shellDepth: number;
   /** Eye height above the seat anchor (row tread level). */
   eyeHeight: number;
+  /** Outside of the building. */
+  exterior?: {
+    /** Outer wall finish for every stand that doesn't set its own. Default 'concrete'. */
+    facade?: FacadeStyle;
+    /** Width of the paved apron round the outer walls, metres. Default 15; 0 for none. */
+    apron?: number;
+  };
   /**
    * Per-stand overrides. A missing stand uses the stadium-wide values; `null` leaves that
    * piece of the bowl empty (an open corner, or no stand behind a goal).
@@ -198,6 +220,8 @@ export interface StandShell {
   tiers: TierLayout[];
   outerD: number;
   roof: RoofSpec | null;
+  /** Outer wall finish; omitted = 'concrete'. */
+  facade?: FacadeStyle;
 }
 
 /**
@@ -211,6 +235,8 @@ export interface ShellSpec {
    * bowlPieces). null = no stand there.
    */
   stands: Array<StandShell | null>;
+  /** Width of the paved apron round the outer walls; omitted = 15 m, 0 = none. */
+  apron?: number;
 }
 
 /** stadium.json version 1 shell: one cross-section all the way round. Upgraded on load. */

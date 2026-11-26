@@ -91,7 +91,9 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Corners:** round (rows curve round) or square (rows run straight on and meet at the diagonal, as in a filled-in corner).
 - **Overhanging tiers:** a negative `setback` hangs a tier out over the back rows of the tier below, with a flat underside and a headroom check.
 - **Real names:** `blocks` gives a stand's real block names in place of numbers; `rowLabels` gives lettered rows (A–Z, then AA, BB…) or any list.
-- **St James' Park:** Milburn Stand and Leazes End two-tiered with the upper tier wrapping their corner under one big roof, East Stand single-tiered, Gallowgate End split by a walkway, all corners filled square. Pitch gaps and stand depths come from the OpenStreetMap building outline.
+- **Sightlines per stand (optional):** `bowl.sightlines: 'stand'` designs each stand's rake for its own distance to the pitch, for grounds of separate stands. The default shares one distance so matching stands join seamlessly.
+- **Outside:** each stand's outer wall can be concrete, glass (curtain wall, windows lit in the evening), cladding panels or brick, drawn in flat colours for the overview, with a paved apron round the building.
+- **St James' Park:** Milburn Stand and Leazes End two-tiered with the upper tier wrapping their corner under one big roof, East Stand single-tiered, Gallowgate End split by a walkway, all corners filled square. Pitch gaps and stand depths come from the OpenStreetMap building outline. Outside: glazed Milburn/Leazes backs, brick East Stand, clad Gallowgate (chosen to read as the ground from above, not surveyed).
 
 ### Camera
 - **Orbit mode:**
@@ -272,6 +274,7 @@ After the six phases the project went under git and onto GitHub, and work moved 
 | 2026-11-18 | Square corners | Filled-in corners; corner seat flights aim at the corner's centre so they never cross the next stand |
 | 2026-11-18 | Block names and lettered rows | Real block names per stand and tier; row letters shown everywhere in the UI |
 | 2026-11-20 | Overhanging tiers | Negative setback with underside, headroom check and camera handling; St James' Park upper tier given an estimated 4 m overhang |
+| 2026-11-20 | Sightlines per stand; outside of the stadium | Optional per-stand rake design (used by the four-stands example; St James' Park keeps the shared design so its Milburn–Leazes wrap and photo fit hold); facade styles and a paved apron |
 
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
@@ -297,6 +300,16 @@ Mid-project the files moved from a temporary workspace into `C:\Users\berni\stad
   - Gallowgate block GS-Q row A: fits a model seat in the Gallowgate–Milburn corner to 3.6 px (27.9 px before the square corners).
 - **Capacity:** model 52,162; published about 52,300. The model has no executive box levels or media seats, so the close match is partly luck.
 - **Camera flights:** square corners 0 hits in 1,004 flights; overhang 0 hits in 930 flights across every section, plus 552 flights from the rows under a deliberately low overhang. Every frame-to-frame segment is raycast against the real triangles.
+- **Sightlines per stand** (C-value against each stand's own nearest touchline or goal line, median):
+
+  | Stand | Lower | Upper |
+  |---|---|---|
+  | Milburn | 60 mm | −108 mm |
+  | Leazes | 99 mm | −80 mm |
+  | East | 60 mm | — |
+  | Gallowgate | 42 mm | 38 mm |
+
+  Level 7 is at the 35° rake cap and still can't reach 60 mm: from there, the head in front hides the near touchline. Gallowgate's shallow rake comes from the photo fit. Designing Leazes for its own 7 m gap instead would lower both its tiers by 2.3 m, breaking the seamless corner join with Milburn and the Level 7 photo fit, so St James' Park keeps the shared design.
 - **Not checkable yet:** the size of the upper-tier overhang (no photo or plan shows it), the real block layout, and the East Stand and Milburn lower tier.
 
 ### Performance (Intel Iris Xe, 60 Hz, Chromium, visible window)
@@ -412,8 +425,7 @@ rather than selling a standalone viewer to top clubs.
 **Current roadmap**
 1. St James' Park block names from the club's official block map (the naming feature is built).
 2. More photo checks: East Stand and Milburn lower tier.
-3. Sightline targets tuned per stand, if the photos call for it.
-4. A recognisable outside of the stadium, generated from the config and aimed at the overview: cladding, roof trusses and stand heights in flat colours, on a simple paved apron.
+3. Optional: nearby buildings around St James' Park from OpenStreetMap, for context in the overview.
 
 **To make it a product**
 1. Model one real stadium end to end, from a CAD/CSV export or a laser scan, and compare the seat views with photos taken from real seats. (St James' Park is a first step from public data.)

@@ -23,6 +23,9 @@ import type { RoofConfig, StadiumConfig, StandConfig, TierConfig } from '../../d
  * - Section numbers (101..., 201...) are generated, NOT the club's real block numbers.
  *   Row counts, rakes and roof sizes are fitted estimates, not survey data.
  *
+ * - Outside: glazed backs on the tall Milburn/Leazes stands, brick East Stand, clad Gallowgate.
+ *   Chosen to read as St James' Park from the overview, not surveyed.
+ *
  * Mapping to the generator's compass pieces (the generator runs the pitch along X):
  * N = Milburn (real west), E = Leazes (real north), S = East Stand, W = Gallowgate (real south).
  */
@@ -52,10 +55,11 @@ const tall = (name: string, sections: number): StandConfig => ({
   sections,
   roof: bigRoof,
   shellDepth: 14,
+  facade: 'glass',
 });
 
 /** Single-tier stands; a corner gets the same cross-section as the stand it continues. */
-const eastProfile = { tiers: [{ id: 1, rows: 28 }], roof: { ...lowRoof, cantilever: 22 }, shellDepth: 6 };
+const eastProfile = { tiers: [{ id: 1, rows: 28 }], roof: { ...lowRoof, cantilever: 22 }, shellDepth: 6, facade: 'brick' as const };
 /*
  * Gallowgate End, checked against two fan photos:
  * - Its seating is split by a walkway, with row lettering restarting at A behind a balcony
@@ -71,6 +75,7 @@ const gallowgateProfile = {
   ],
   roof: { ...lowRoof, clearance: 3.5, cantilever: 30, slopeDeg: -8 },
   shellDepth: 7,
+  facade: 'panels' as const,
 };
 
 export const stJamesPark: StadiumConfig = {
