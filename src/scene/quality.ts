@@ -51,19 +51,21 @@ const MIN_RENDER_HEIGHT = 1100;
 // it. Past that, a sharp image at 60 fps beats a soft one at the display rate.
 export const SHARP_SCALE = 0.85;
 const BASE_FPS = 60;
-// Refresh rates displays commonly run at; a measured rate within 4% of one snaps to it.
-const COMMON_HZ = [60, 75, 90, 100, 120, 144, 165, 180, 200, 240, 360];
+// Refresh rates displays commonly run at. A measured rate must be within 3% of one to count:
+// anything else is timing noise (a 64 Hz reading on a 60 Hz screen, say) or a GPU-bound rate.
+const COMMON_HZ = [60, 75, 85, 90, 100, 120, 144, 165, 170, 180, 200, 240, 280, 360];
 
 /**
- * Finds the display's refresh rate from the gaps between animation frames. Frames that finish in
- * time arrive exactly one refresh apart, so the shortest regular gap (10th percentile over a
- * second) is one refresh. Only ever goes up: a slow GPU makes gaps longer, never shorter.
+ * Finds the display's refresh rate from the gaps between animation frames. While frames keep up,
+ * the typical gap is one refresh; browser timestamps jitter, so single gaps can't be trusted. A rate is accepted when two one-second windows in a row agree on it, and only ever
+ * goes up: a slow GPU makes gaps longer, never shorter.
  */
 export class RefreshRate {
   hz = BASE_FPS;
   private gaps: number[] = [];
   private last = 0;
   private windowStart = 0;
+  private candidate = 0;
 
   /** Call once per animation frame; returns true when the rate went up. */
   frame(now: number): boolean {
@@ -73,19 +75,23 @@ export class RefreshRate {
     this.gaps.push(gap);
     this.windowStart ||= now;
     if (now - this.windowStart < 1000 || this.gaps.length < 30) return false;
-    const sorted = this.gaps.sort((a, b) => a - b);
-    const hz = snapHz(1000 / sorted[Math.floor(sorted.length * 0.1)]);
+    // Mean of the gaps near the median: averages out jitter, leaves out frames that took two refreshes.
+    const median = this.gaps.sort((a, b) => a - b)[Math.floor(this.gaps.length / 2)];
+    const near = this.gaps.filter((g) => Math.abs(g - median) < median * 0.25);
+    const hz = snapHz((1000 * near.length) / near.reduce((n, g) => n + g, 0));
     this.gaps = [];
     this.windowStart = now;
-    if (hz <= this.hz) return false;
+    const agreed = hz !== null && hz === this.candidate;
+    this.candidate = hz ?? 0;
+    if (!agreed || hz <= this.hz) return false;
     this.hz = hz;
     return true;
   }
 }
 
-function snapHz(measured: number): number {
-  const near = COMMON_HZ.find((h) => Math.abs(measured - h) / h < 0.04);
-  return Math.max(BASE_FPS, near ?? Math.round(measured));
+/** The common refresh rate within 3% of a measurement, or null. */
+function snapHz(measured: number): number | null {
+  return COMMON_HZ.find((h) => Math.abs(measured - h) / h < 0.03) ?? null;
 }
 
 /**

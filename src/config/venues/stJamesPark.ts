@@ -21,6 +21,8 @@ import type { RoofConfig, StadiumConfig, StandConfig, TierConfig } from '../../d
  *   0.5 m seats). It has no executive box levels, media seats or wide stair landings, so the
  *   close match is partly luck.
  * - Section numbers (101..., 201...) are generated, NOT the club's real block numbers.
+ *   Third-party ticket sites list codes like MSL1A-I, ESA-M and GSA-V, but not their order
+ *   or tier, and their counts don't match these sections. Waiting for the official block map.
  *   Row counts, rakes and roof sizes are fitted estimates, not survey data.
  *
  * - Outside: glazed backs on the tall Milburn/Leazes stands, brick East Stand, clad Gallowgate.
@@ -95,9 +97,18 @@ export const stJamesPark: StadiumConfig = {
   roof: lowRoof,
   shellDepth: 8,
   eyeHeight: 1.2,
-  // Black and white stripes (most fans), some plain black or white. Away fans: high in Level 7
-  // of the Leazes End at the East Stand end, from memory of where the club puts them; the
-  // three sections (about 2,600 seats) are an approximation, as are the generated numbers.
+  // Big screens for 2026-27. The club confirmed new, higher-visibility screens in the bowl
+  // (newcastleunited.com, 26/27 season ticket information, 6 March 2026) but gave no positions
+  // or sizes. Press coverage relayed by research (August 2026, not independently checked) puts
+  // them in Strawberry Corner, on the Milburn Stand and on the Leazes End. Positions along each
+  // stand and the 14 x 6 m size are placeholders.
+  details: {
+    scoreboards: [{ stand: 'E' }, { stand: 'N' }, { stand: 'SW' }],
+  },
+  // Black and white stripes (most fans), some plain black or white. Away fans: Level 7 of the
+  // Leazes End at the East Stand end, up to about 3,000 in league games (Football Ground Guide,
+  // ticket-site seating plans). Three sections give 2,622 seats; a fourth would give 3,496, further
+  // off. Section numbers are generated, not the club's blocks.
   crowd: {
     home: ['#111111/#f2f2f2', '#111111/#f2f2f2', '#111111/#f2f2f2', '#111111', '#f2f2f2'],
     away: ['#d4122a'],

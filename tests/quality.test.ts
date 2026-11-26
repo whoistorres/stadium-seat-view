@@ -38,16 +38,33 @@ function simulate(hz: number, costMs: (t: number) => number, seconds: number, on
 describe('RefreshRate', () => {
   it.each([60, 75, 120, 144, 165, 240])('finds %i Hz from regular frames', (hz) => {
     const r = new RefreshRate();
-    for (let i = 0, t = 1000; i < 400; i++, t += 1000 / hz + (i % 3 === 0 ? 0.3 : -0.15)) r.frame(t);
+    for (let i = 0, t = 1000; i < 3 * hz; i++, t += 1000 / hz + (i % 3 === 0 ? 0.3 : -0.15)) r.frame(t);
     expect(r.hz).toBe(hz);
   });
 
   it('finds the display rate when some frames are late', () => {
     const r = new RefreshRate();
     const period = 1000 / 144;
-    // Two in three frames take two refreshes.
-    for (let i = 0, t = 1000; i < 600; i++, t += i % 3 === 0 ? period : 2 * period) r.frame(t);
+    // One in three frames takes two refreshes.
+    for (let i = 0, t = 1000; i < 600; i++, t += i % 3 === 0 ? 2 * period : period) r.frame(t);
     expect(r.hz).toBe(144);
+  });
+
+  it('ignores timing jitter on a 60 Hz display', () => {
+    // Seen in Chromium: gaps scatter around 16.7 ms, some well short of it. A 10th-percentile
+    // estimate read this as 64 Hz.
+    const r = new RefreshRate();
+    const jitter = [-1.1, 0.9, -0.3, 1.4, -1.6, 0.2, 0.5, -0.8, 1.0, -0.2];
+    for (let i = 0, t = 1000; i < 900; i++, t += 1000 / 60 + jitter[i % jitter.length]) r.frame(t);
+    expect(r.hz).toBe(60);
+  });
+
+  it("doesn't mistake a GPU-bound rate for the display's", () => {
+    const r = new RefreshRate();
+    const period = 1000 / 144;
+    // Two in three frames take two refreshes: about 86 fps, typical gap 13.9 ms (72 Hz).
+    for (let i = 0, t = 1000; i < 900; i++, t += i % 3 === 0 ? period : 2 * period) r.frame(t);
+    expect([60, 144]).toContain(r.hz);
   });
 
   it('never goes below 60 or down', () => {

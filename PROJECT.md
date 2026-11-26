@@ -146,7 +146,7 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Day:** a gradient sky, distance fog, and sun shadows from the roof and stands onto the seats and pitch. Shadows are drawn once and redrawn only when lighting changes.
 - **Evening:** a dark sky, an overhead white light standing in for the floodlights, four corner spotlights, glowing roof fixtures, brighter ad boards and a darkened building exterior.
 - **Crowd:** 33,000+ seated figures, one on every sold seat.
-  - Team colours from the config: home kits (plain or vertical stripes, drawn in the shader), an away end in the away kit, and about 4 in 10 fans in dark coats. A generic mix when the config has none. St James' Park: black-and-white stripes, away fans high in Level 7 of the Leazes End at the East Stand end (placement from memory, approximate).
+  - Team colours from the config: home kits (plain or vertical stripes, drawn in the shader), an away end in the away kit, and about 4 in 10 fans in dark coats. A generic mix when the config has none. St James' Park: black-and-white stripes, away fans in Level 7 of the Leazes End at the East Stand end, as ticket-site seating plans and the Football Ground Guide describe. Three sections (2,622 seats) against a usual allocation of up to about 3,000; a fourth section would make 3,496.
   - Faces from the front and hair from behind.
   - Slight random turn and size for each figure.
   - Two detail levels.
@@ -154,7 +154,7 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Stadium details:**
   - Aisle stairs between neighbouring sections, two steps per row with yellow nosings, found from the seat rows.
   - Tunnel mouths at the top of each aisle where the wall there is tall enough: under an overhanging tier, in the front wall of a tier above a walkway, or in the back wall of the top tier.
-  - Scoreboards on the front of a stand's roof (or its back wall), showing a lit generic scoreline by day and night.
+  - Scoreboards on the front of a stand's roof (or its back wall), showing a lit generic scoreline by day and night. St James' Park has three, for 2026–27: Leazes End, Milburn Stand and Strawberry Corner (positions along each stand and sizes are placeholders).
   - Team dugouts by the halfway line with clear canopies, backing onto the advertising boards (which stop either side of them). The seat card says when a dugout hides part of the near touchline.
 
 ### Quality and performance
@@ -295,6 +295,7 @@ After the six phases the project went under git and onto GitHub, and work moved 
 | 2026-11-26 | Per-seat pricing; team colours | Seat prices vary by row and position within each price zone, and every filter, count and colour works per seat; the crowd wears home and away kits, with stripes |
 | 2026-11-26 | Venue previews kept out of `public/data` | Twice a St James' Park preview (once relaunched by the desktop app after being stopped) overwrote the committed default data just before a commit; caught before pushing. Non-default configs are now served from memory instead of written to disk |
 | 2026-11-26 | Tests and CI; refresh-rate matching | 68 Vitest tests and a GitHub Actions workflow. Adaptive resolution now aims for the display's refresh rate, accepting at most a 15% drop in resolution before settling for a sharp 60 fps. A first simulation sat at 138 fps on a 144 Hz display, inside a 4% margin and never adjusting, though that means a dropped frame every fifth of a second; the margin became 3% |
+| 2026-11-26 | St James' Park research applied | Research (via Gemini) checked against the model. Dugouts and away end already matched. Screens moved from the two ends to the Leazes End, Milburn Stand and Strawberry Corner. A fourth away section was planned to reach about 3,000 seats, but each section is 874 seats, so it would have made 3,496; the away end stays at three. Third-party block codes (MSL1A–I, ESA–M, GSA–V…) were not applied: their order and tiers are unknown, and their counts don't match the model's sections. One press source couldn't be opened (HTTP 403). Checking in the browser also showed the new refresh-rate detection reading a 60 Hz screen as 64 Hz (frame-timing jitter) and wrongly settling for 60; it now averages the gaps near the median and needs two seconds in a row to agree on a common rate |
 
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
@@ -331,6 +332,7 @@ Mid-project the files moved from a temporary workspace into `C:\Users\berni\stad
 
   Level 7 is at the 35° rake cap and still can't reach 60 mm: from there, the head in front hides the near touchline. Gallowgate's shallow rake comes from the photo fit. Designing Leazes for its own 7 m gap instead would lower both its tiers by 2.3 m, breaking the seamless corner join with Milburn and the Level 7 photo fit, so St James' Park keeps the shared design.
 - **View notes** (clearance over the nearest head in front, to the nearest point of the pitch, every seat): 17,255 seats below 0 mm, 13,007 at 0–60, 9,766 at 60–90, 4,967 at 90–120 and 7,167 at 120 mm or more. The negative ones are Level 7 (−78 to −261 mm, the front row worst, over its wall) and most of the Gallowgate (31 to −83 mm). The default stadium has every seat at 60 mm or more.
+- **Screens (2026–27 positions):** 344 camera flights, in and out of the front and back row of every section, 49,055 frame steps tested against the three screens' bounding boxes (plus 0.3 m): 0 hits.
 - **Per-seat prices:** with the price filter at 150 to 170 euros, the legend count (1,441 free seats) matches a seat-by-seat count, and no seat outside that window can be selected.
 - **Not checkable yet:** the size of the upper-tier overhang (no photo or plan shows it), the real block layout, and the East Stand and Milburn lower tier.
 
@@ -377,7 +379,7 @@ Early measurements taken while the browser pane was hidden were discarded: the b
   - corner gaps
   - a players' tunnel
 - Rows have constant depth.
-- Scoreboard and dugout positions are generic defaults (end stands, north touchline), not surveyed, St James' Park included.
+- Scoreboard and dugout positions are generic defaults (end stands, north touchline), not surveyed. St James' Park: dugouts on the Milburn side match published guides; its screens are on the stands that press coverage named (Leazes End, Milburn Stand, Strawberry Corner), but where along each stand, how big, and whether on the roof or the stand front is not known. The club confirmed new bowl screens for 2026–27 without saying where.
 - Sightline checks assume everyone's eye is 1.2 m above their floor and aim at the nearest point of the pitch. Tall people and standing fans are not modelled.
 - **St James' Park:** the box levels between its tiers are not modelled, the overhang is an estimate, sections use generated numbers until the club's block map is in, and seat numbers run 1 to n per block (real tickets suggest they run across a whole stand; `seatNumbers` can do that once the block map confirms it).
 - With `shell: null` (a real venue's own building model), the orbit camera no longer has anything stopping it entering the building. That needs reworking for real venues.
