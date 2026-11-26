@@ -177,6 +177,8 @@ export interface ResolvedStand {
   sections: number[];
   /** Block names across each tier, parallel to `tiers`; undefined = numbered. */
   blocks: Array<string[] | undefined>;
+  /** Bands of sections in each tier, front to back, parallel to `tiers`. One band unless split. */
+  bands: Array<Array<{ rows: number; count: number; blocks?: string[] }>>;
   roof: RoofConfig;
   shellDepth: number;
   facade: FacadeStyle;
@@ -193,16 +195,24 @@ export function resolveStands(cfg: StadiumConfig, pieces: Piece[] = bowlPieces(b
     if (o === null) return null;
     const list: StandTier[] = o?.tiers ?? cfg.tiers.map((t) => ({ id: t.id }));
     if (list.length === 0) return null;
-    const tiers = list.map(({ sections: _sections, blocks: _blocks, ...geometry }) => {
+    const tiers = list.map(({ sections: _sections, blocks: _blocks, bands: _bands, ...geometry }) => {
       const base = cfg.tiers.find((t) => t.id === geometry.id);
       if (!base) throw new Error(`stadiumConfig: stand ${piece.side} uses tier ${geometry.id}, which is not in "tiers"`);
       return { ...base, ...withoutUndefined(geometry) };
     });
+    const sections = list.map((t) =>
+      t.bands ? t.bands.reduce((n, b) => n + b.blocks.length, 0) : (t.blocks?.length ?? t.sections ?? o?.sections ?? cfg.bowl.sectionsPerZone[piece.zone]),
+    );
     return {
       name: o?.name,
       tiers,
-      sections: list.map((t) => t.blocks?.length ?? t.sections ?? o?.sections ?? cfg.bowl.sectionsPerZone[piece.zone]),
+      sections,
       blocks: list.map((t) => t.blocks),
+      bands: list.map((t, i) =>
+        t.bands
+          ? t.bands.map((b) => ({ rows: b.rows, count: b.blocks.length, blocks: b.blocks }))
+          : [{ rows: tiers[i].rows, count: sections[i], blocks: t.blocks }],
+      ),
       roof: o?.roof === undefined ? cfg.roof : (o.roof ?? { ...cfg.roof, enabled: false }),
       shellDepth: o?.shellDepth ?? cfg.shellDepth,
       facade: o?.facade ?? cfg.exterior?.facade ?? 'concrete',
@@ -238,6 +248,21 @@ function checkTiers(cfg: StadiumConfig): void {
         for (const b of t.blocks) {
           if (!/^[^\s-]+$/.test(b)) throw new Error(`stadiumConfig: ${where} block "${b}" must be one word with no hyphens`);
         }
+      }
+      if (t.bands) {
+        if (t.blocks || t.sections !== undefined) throw new Error(`stadiumConfig: ${where} has "bands"; drop "blocks" and "sections"`);
+        if (t.bands.length === 0) throw new Error(`stadiumConfig: ${where} has an empty "bands" list`);
+        const rows = t.rows ?? cfg.tiers.find((c) => c.id === t.id)?.rows ?? 0;
+        let sum = 0;
+        t.bands.forEach((b, i) => {
+          if (!Number.isInteger(b.rows) || b.rows < 1) throw new Error(`stadiumConfig: ${where}, band ${i + 1} needs a whole number of rows`);
+          if (!b.blocks?.length) throw new Error(`stadiumConfig: ${where}, band ${i + 1} needs at least one block`);
+          for (const name of b.blocks) {
+            if (!/^[^\s-]+$/.test(name)) throw new Error(`stadiumConfig: ${where} block "${name}" must be one word with no hyphens`);
+          }
+          sum += b.rows;
+        });
+        if (sum !== rows) throw new Error(`stadiumConfig: ${where} has bands of ${sum} rows in all, but the tier has ${rows}`);
       }
       if (t.rowLabels !== undefined) {
         const base = cfg.tiers.find((c) => c.id === t.id);
@@ -388,45 +413,58 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
       if (!st || ti < 0) return;
       const t = st.tiers[ti];
       const layout = layouts[pi]![ti];
-      const count = st.sections[ti];
-      const names = st.blocks[ti];
-      const firstSection = sections.length;
-      // A square corner is two straight legs; sections never wrap round the turn, so the
-      // aisle between the legs' blocks runs up the diagonal. The first leg takes the odd one.
-      const legs = piece.kind === 'arc' && piece.square ? [Math.ceil(count / 2), Math.floor(count / 2)] : [count];
-      for (let s = 0; s < count; s++) {
-        const leg = s < legs[0] ? 0 : 1;
-        const inLeg = s - (leg ? legs[0] : 0);
-        const rows: Row[] = [];
-        for (let k = 0; k < t.rows; k++) {
-          const d = layout.frontD + k * t.rowDepth + seatInset;
-          const y = layout.rowY[k];
-          const total = pieceLength(piece, shape, d);
-          const legLength = total / legs.length;
-          const slice = legLength / legs[leg];
-          const n = Math.max(1, Math.floor((slice - aisleWidth) / seatSpacing));
-          // Centre the block in its slice; whatever is left over widens the aisles.
-          const first = leg * legLength + inLeg * slice + (slice - (n - 1) * seatSpacing) / 2;
-          const seats: SeatTuple[] = [];
-          for (let i = 0; i < n; i++) {
-            const p = pointOnPiece(piece, shape, d, (first + i * seatSpacing) / total);
-            const yaw = Math.atan2(-p.nx, -p.nz);
-            seats.push([i + 1, round(p.x, 2), round(y, 2), round(p.z, 2), round(yaw, 4)]);
+      const square = piece.kind === 'arc' && !!piece.square;
+      let rowStart = 0;
+      // Bands of blocks front to back; a tier that isn't split is one band.
+      for (const band of st.bands[ti]) {
+        const { count, blocks: names } = band;
+        const firstSection = sections.length;
+        // A square corner is two straight legs; sections never wrap round the turn, so the
+        // aisle between the legs' blocks runs up the diagonal. The first leg takes the odd one.
+        // A lone block covers both legs, with an aisle up the diagonal through it.
+        const legs = square && count > 1 ? [Math.ceil(count / 2), Math.floor(count / 2)] : [count];
+        const legCount = square ? 2 : 1;
+        for (let s = 0; s < count; s++) {
+          // Slices this section covers: [leg, index within the leg, slices in that leg].
+          const leg = s < legs[0] ? 0 : 1;
+          const parts: Array<[number, number, number]> =
+            square && count === 1 ? [[0, 0, 1], [1, 0, 1]] : [[leg, s - (leg ? legs[0] : 0), legs[leg]]];
+          const rows: Row[] = [];
+          for (let k = 0; k < band.rows; k++) {
+            const row = rowStart + k;
+            const d = layout.frontD + row * t.rowDepth + seatInset;
+            const y = layout.rowY[row];
+            const total = pieceLength(piece, shape, d);
+            const legLength = total / legCount;
+            const seats: SeatTuple[] = [];
+            for (const [pl, inLeg, perLeg] of parts) {
+              const slice = legLength / perLeg;
+              const n = Math.max(1, Math.floor((slice - aisleWidth) / seatSpacing));
+              // Centre the block in its slice; whatever is left over widens the aisles.
+              const first = pl * legLength + inLeg * slice + (slice - (n - 1) * seatSpacing) / 2;
+              for (let i = 0; i < n; i++) {
+                const p = pointOnPiece(piece, shape, d, (first + i * seatSpacing) / total);
+                const yaw = Math.atan2(-p.nx, -p.nz);
+                seats.push([seats.length + 1, round(p.x, 2), round(y, 2), round(p.z, 2), round(yaw, 4)]);
+              }
+            }
+            const label = rowLabel(t.rowLabels, k);
+            rows.push(label === undefined ? { n: k + 1, seats } : { n: k + 1, label, seats });
           }
-          const label = rowLabel(t.rowLabels, k);
-          rows.push(label === undefined ? { n: k + 1, seats } : { n: k + 1, label, seats });
+          sections.push({
+            id: names ? names[s] : String(sectionNumber++),
+            tier: tier.id,
+            zone: piece.zone,
+            side: piece.side,
+            ...(st.name ? { stand: st.name } : {}),
+            rowDepth: t.rowDepth,
+            ...(rowStart ? { rowOffset: rowStart } : {}),
+            rows,
+          });
         }
-        sections.push({
-          id: names ? names[s] : String(sectionNumber++),
-          tier: tier.id,
-          zone: piece.zone,
-          side: piece.side,
-          ...(st.name ? { stand: st.name } : {}),
-          rowDepth: t.rowDepth,
-          rows,
-        });
+        numberSeats(sections.slice(firstSection), t.seatNumbers);
+        rowStart += band.rows;
       }
-      numberSeats(sections.slice(firstSection), t.seatNumbers);
     });
   }
 

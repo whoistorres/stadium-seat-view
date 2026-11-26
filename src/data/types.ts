@@ -73,10 +73,24 @@ export interface StandTier extends Partial<TierGeometry> {
    * facing the pitch. Sets the section count and replaces the generated numbers. No hyphens.
    */
   blocks?: string[];
+  /**
+   * For a tier whose rows are split into separately named blocks stacked front to back (e.g. a
+   * band of "L1" blocks in front of a band of "L2" blocks): each band takes `rows` rows and has
+   * its own `blocks`, left to right. The bands' rows must add up to the tier's. Row numbers and
+   * labels start again in each band. Replaces `blocks` and `sections`.
+   */
+  bands?: BlockBand[];
   /** Row labels in this stand, if they differ from the tier's. */
   rowLabels?: RowLabels;
   /** Seat numbering in this stand, if it differs from the tier's. */
   seatNumbers?: SeatNumbering;
+}
+
+export interface BlockBand {
+  /** Rows in this band. */
+  rows: number;
+  /** Block names across the band, left to right as seen sitting in the stand facing the pitch. */
+  blocks: string[];
 }
 
 /**
@@ -216,6 +230,11 @@ export interface Section {
   /** Name of the stand the section is in, e.g. "Milburn Stand". Optional. */
   stand?: string;
   rowDepth: number;
+  /**
+   * Rows of the same tier in front of this section's first row, when the tier is split into
+   * bands of blocks (StandTier.bands). Omitted = 0: the section starts at the tier's front.
+   */
+  rowOffset?: number;
   rows: Row[];
 }
 

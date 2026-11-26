@@ -37,10 +37,11 @@ function hashString(s: string): number {
  * tier is cheaper) and by position (sideline seats near halfway cost more than those near the
  * corner flags; end seats behind the goal a little more than those towards the corners).
  */
-function sectionPrices(s: Section, base: number, isBack: boolean, pitch: StadiumData['pitch']): PriceRuns {
-  const rows = s.rows.length;
+function sectionPrices(s: Section, tierRows: number, base: number, isBack: boolean, pitch: StadiumData['pitch']): PriceRuns {
+  const offset = s.rowOffset ?? 0;
   return s.rows.map((row, k) => {
-    const r = rows > 1 ? k / (rows - 1) : 0.5;
+    // Position within the whole tier, so a band of blocks further back doesn't start cheap.
+    const r = tierRows > 1 ? (offset + k) / (tierRows - 1) : 0.5;
     const byRow = 1 + 0.08 * Math.sin(Math.PI * r) - 0.15 * Math.max(0, 1 - r / 0.15) - (isBack ? 0.1 * Math.max(0, (r - 0.7) / 0.3) : 0);
     const runs: Array<[number, number]> = [];
     for (const t of row.seats) {
@@ -66,10 +67,17 @@ export function generateTickets(stadium: StadiumData, seed = 2026): TicketData {
   const front = tierIds[0];
   const back = tierIds.length > 1 ? tierIds[tierIds.length - 1] : null;
 
-  // Position of each section within its stand (same tier and side), to find the central ones.
-  const groupSize = new Map<string, number>();
-  const groupIndex = stadium.sections.map((s) => {
+  // Rows in each stand's tier, counting every band of blocks.
+  const tierRows = new Map<string, number>();
+  for (const s of stadium.sections) {
     const key = `${s.tier}${s.side}`;
+    tierRows.set(key, Math.max(tierRows.get(key) ?? 0, (s.rowOffset ?? 0) + s.rows.length));
+  }
+  // Position of each section within its stand (same tier, side and band), to find the central ones.
+  const groupSize = new Map<string, number>();
+  const groupKey = (s: Section) => `${s.tier}${s.side}/${s.rowOffset ?? 0}`;
+  const groupIndex = stadium.sections.map((s) => {
+    const key = groupKey(s);
     const i = groupSize.get(key) ?? 0;
     groupSize.set(key, i + 1);
     return i;
@@ -79,7 +87,7 @@ export function generateTickets(stadium: StadiumData, seed = 2026): TicketData {
   const sold: TicketData['sold'] = {};
 
   stadium.sections.forEach((s, si) => {
-    const n = groupSize.get(`${s.tier}${s.side}`)!;
+    const n = groupSize.get(groupKey(s))!;
     const central = Math.abs(groupIndex[si] - (n - 1) / 2) < n / 4;
     let category: CategoryId;
     const isBack = s.tier === back;
@@ -87,7 +95,7 @@ export function generateTickets(stadium: StadiumData, seed = 2026): TicketData {
     if (s.zone === 'sideline') category = isBack ? (central ? 'B' : 'C') : central ? 'A' : 'B';
     else if (s.zone === 'corner') category = isBack ? 'D' : 'C';
     else category = isMiddle ? 'C' : 'D';
-    sections[s.id] = { category, prices: sectionPrices(s, DEFAULT_CATEGORIES.find((c) => c.id === category)!.price, isBack, stadium.pitch) };
+    sections[s.id] = { category, prices: sectionPrices(s, tierRows.get(`${s.tier}${s.side}`)!, DEFAULT_CATEGORIES.find((c) => c.id === category)!.price, isBack, stadium.pitch) };
 
     // Two-state Markov chain whose long-run sold share equals p.
     const p = SOLD_SHARE[category];

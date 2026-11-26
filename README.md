@@ -126,7 +126,7 @@ stands: {
 | Field | Meaning |
 |---|---|
 | `name` | Display name, e.g. "Milburn Stand". The UI shows it instead of "Sideline, North" |
-| `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet`, `rowLabels`, `seatNumbers` and `sections`, or name its real blocks with `blocks`. Omit for all tiers unchanged |
+| `tiers` | Tiers in this stand, front to back. Each names a stadium-wide tier by `id` and may change `rows`, `rowDepth`, `rakeDeg`, `cValue`, `setback`, `lift`, `parapet`, `rowLabels`, `seatNumbers` and `sections`, or name its real blocks with `blocks` (or `bands`, below). Omit for all tiers unchanged |
 | `sections` | Sections per tier in this stand (a tier's own `sections` wins) |
 | `roof` | This stand's roof, or `null` for none |
 | `shellDepth` | Concourse/facade depth behind this stand |
@@ -138,6 +138,12 @@ stands: {
 
 ```ts
 E: { tiers: [{ id: 1, blocks: ['LSL1L', 'LSL1K', 'LSL1J'], rowLabels: 'letters' }, { id: 2 }] },
+```
+
+**Bands of blocks.** Where one tier's rows hold several rows of blocks, one behind the other (a band of `L1` blocks in front of a band of `L2` blocks), give the tier `bands` instead, front to back. Each band has its own `rows` and `blocks`; the rows must add up to the tier's. The tier keeps its shape, rake and sightlines: the bands only divide its rows. Row numbers and labels start again in each band. A lone block in a square corner covers both legs, with an aisle up the diagonal:
+
+```ts
+E: { tiers: [{ id: 1, bands: [{ rows: 6, blocks: ['LSL1F', 'LSL1E'] }, { rows: 26, blocks: ['LSL2S', 'LSL2R', 'LSL2Q'] }] }, { id: 2 }] },
 ```
 
 **Seat numbers.** By default seats are numbered from 1 in each block, left to right as seen sitting in the stand facing the pitch. A tier's `seatNumbers` changes that, stadium-wide or for one stand:
@@ -196,6 +202,7 @@ Rendering code never reads the config, only the generated JSON, so changing valu
     id: "214",                                    // number, or the real block name, e.g. "GSQ"
     tier: 2, zone: "sideline" | "end" | "corner", side: "N" | "NE" | ...,
     rowDepth: 0.85,
+    rowOffset?: 12,                               // rows of the tier in front, for a band of blocks further back
     rows: [{ n: 12, label?: "M", seats: [[seatNumber, x, y, z, yaw], ...] }]  // label: row name on tickets
   }]
 }

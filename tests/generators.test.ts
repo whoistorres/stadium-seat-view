@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { stadiumConfigs } from '../src/config/index.ts';
 import { generateStadium, rowLabel } from '../src/data/generateStadium.ts';
+import { Stadium } from '../src/data/loadData.ts';
 import { parseSeatId, seatId } from '../src/data/seatId.ts';
+import { viewNotes } from '../src/data/viewNotes.ts';
 import type { StadiumConfig, StadiumData } from '../src/data/types.ts';
 
 const seatCount = (d: StadiumData) => d.sections.reduce((n, s) => n + s.rows.reduce((m, r) => m + r.seats.length, 0), 0);
@@ -70,9 +72,110 @@ describe.each(Object.keys(stadiumConfigs))('venue %s', (name) => {
 describe('capacity', () => {
   it.each([
     ['default', 54448],
-    ['st-james-park', 52162],
+    ['st-james-park', 53804],
   ])('%s seats %i', (name, seats) => {
     expect(seatCount(generateStadium(stadiumConfigs[name]))).toBe(seats);
+  });
+});
+
+describe('bands of blocks', () => {
+  // Default tier 1 has 24 rows: 10 rows of three blocks in front of 14 rows of two.
+  const withBands = (bands: Array<{ rows: number; blocks: string[] }>) =>
+    generateStadium(variant('default', (c) => (c.stands = { ...c.stands, N: { tiers: [{ id: 1, bands }, { id: 2 }, { id: 3 }] } })));
+  const data = withBands([
+    { rows: 10, blocks: ['F1', 'F2', 'F3'] },
+    { rows: 14, blocks: ['B1', 'B2'] },
+  ]);
+  const byId = (id: string) => data.sections.find((s) => s.id === id)!;
+
+  it('splits the tier into bands front to back', () => {
+    expect(byId('F1').rows).toHaveLength(10);
+    expect(byId('B1').rows).toHaveLength(14);
+    expect(byId('F1').rowOffset).toBeUndefined();
+    expect(byId('B2').rowOffset).toBe(10);
+    // The back band starts one row behind the front band's last row, higher up.
+    expect(byId('B1').rows[0].seats[0][2]).toBeGreaterThan(byId('F1').rows[9].seats[0][2]);
+  });
+
+  it('numbers rows from 1 again in each band', () => {
+    expect(byId('B1').rows.map((r) => r.n).slice(0, 3)).toEqual([1, 2, 3]);
+  });
+
+  it('keeps the tier the same size and shape', () => {
+    const plain = generateStadium(stadiumConfigs.default);
+    const n = (d: StadiumData) => d.sections.filter((s) => s.side === 'N' && s.tier === 1);
+    const ys = (d: StadiumData) => [...new Set(n(d).flatMap((s) => s.rows.map((r) => r.seats[0][2])))].sort((a, b) => a - b);
+    expect(ys(data)).toEqual(ys(plain));
+  });
+
+  it.each([
+    ['rows that do not add up', [{ rows: 10, blocks: ['F1'] }, { rows: 10, blocks: ['B1'] }], /20 rows in all, but the tier has 24/],
+    ['an empty band', [{ rows: 24, blocks: [] }], /at least one block/],
+    ['a band of no rows', [{ rows: 0, blocks: ['F1'] }, { rows: 24, blocks: ['B1'] }], /whole number of rows/],
+  ])('rejects %s', (_, bands, message) => {
+    expect(() => withBands(bands)).toThrow(message);
+  });
+
+  it('rejects bands alongside blocks', () => {
+    expect(() =>
+      generateStadium(
+        variant('default', (c) => (c.stands = { N: { tiers: [{ id: 1, blocks: ['X'], bands: [{ rows: 24, blocks: ['F1'] }] }, { id: 2 }, { id: 3 }] } })),
+      ),
+    ).toThrow(/drop "blocks"/);
+  });
+
+  it('lets a lone block cover both legs of a square corner', () => {
+    const sjp = generateStadium(stadiumConfigs['st-james-park']);
+    const a = sjp.sections.find((s) => s.id === 'SWA')!;
+    const row = a.rows[0].seats;
+    // Seats on both legs: facing changes by about 90 degrees across the diagonal.
+    const turn = Math.abs(Math.atan2(Math.sin(row[0][4] - row[row.length - 1][4]), Math.cos(row[0][4] - row[row.length - 1][4])));
+    expect(turn).toBeGreaterThan(1.2);
+    expect(row.map((t) => t[0])).toEqual(row.map((_, i) => i + 1));
+  });
+});
+
+describe("St James' Park blocks (club map, 2026-27)", () => {
+  const sjp = generateStadium(stadiumConfigs['st-james-park']);
+  const ids = (side: string, tier: number) => sjp.sections.filter((s) => s.side === side && s.tier === tier).map((s) => s.id);
+
+  it('runs the Milburn lower blocks left to right from the Leazes end, with no L1E', () => {
+    expect(ids('N', 1).slice(0, 8)).toEqual(['MSL1I', 'MSL1H', 'MSL1G', 'MSL1F', 'MSL1D', 'MSL1C', 'MSL1B', 'MSL1A']);
+  });
+
+  it('puts the away fans in all of the straight Leazes Level 7', () => {
+    const away = new Set(sjp.crowd!.awaySections);
+    const upper = sjp.sections.filter((s) => s.side === 'E' && s.tier === 2 && /L7/.test(s.id));
+    expect(upper.length).toBe(12);
+    for (const s of upper) expect(away.has(s.id), s.id).toBe(true);
+  });
+
+  it('has the singing section next to the away end', () => {
+    // Leazes corner blocks run left (Leazes side) to right: L7E, L7D, L7C next to L7F.
+    expect(ids('NE', 2).filter((id) => /^LSL7/.test(id))).toEqual(['LSL7E', 'LSL7D', 'LSL7C', 'LSL7B', 'LSL7A']);
+  });
+
+  it('measures the first row of a band over the last row of the band in front', () => {
+    const stadium = new Stadium(sjp);
+    const back = sjp.sections.findIndex((s) => s.id === 'LSL2Q');
+    const front = sjp.sections.findIndex((s) => s.id === 'LSL1F');
+    expect(sjp.sections[back].rowOffset).toBe(13);
+    const first = viewNotes(stadium, { section: back, row: 0, seat: 5 });
+    expect(first.over).toBe('row');
+    expect(first.clearance).not.toBeNull();
+    // A band at the very front still measures over its tier's front wall.
+    expect(viewNotes(stadium, { section: front, row: 0, seat: 5 }).over).toBe('wall');
+  });
+
+  it('has screens on the Leazes End, the Gallowgate End and in Strawberry Corner', () => {
+    const boards = sjp.shell!.scoreboards!;
+    expect(boards).toHaveLength(3);
+    // Leazes: +x end; Gallowgate: -x end; Strawberry Corner: -x, +z.
+    expect(boards.map((b) => [Math.sign(Math.round(b.x)), Math.sign(Math.round(b.z))])).toEqual([
+      [1, 0],
+      [-1, 0],
+      [-1, 1],
+    ]);
   });
 });
 

@@ -52,11 +52,23 @@ export function viewNotes(stadium: Stadium, ref: SeatRef): ViewNotes {
   // Height of the sightline (eye -> pitch edge, which is at y = 0) at horizontal distance dist from the pitch edge.
   const lineAt = (dist: number) => (ey * dist) / Math.max(toPitch, 1e-6);
 
-  if (ref.row > 0) {
+  // The row in front: in this block, or for the first row of a band further back, the last
+  // row of every block in the band in front (same tier and stand).
+  const offset = section.rowOffset ?? 0;
+  const rowsInFront =
+    ref.row > 0
+      ? [section.rows[ref.row - 1]]
+      : offset > 0
+        ? stadium.sections
+            .filter((s) => s.tier === section.tier && s.side === section.side && (s.rowOffset ?? 0) + s.rows.length === offset)
+            .map((s) => s.rows[s.rows.length - 1])
+        : [];
+  const inFront = rowsInFront.flatMap((r) => r.seats);
+  if (inFront.length) {
     // The person in front: the nearest seat in the row in front.
     let best = Infinity;
-    let head = section.rows[ref.row - 1].seats[0];
-    for (const t of section.rows[ref.row - 1].seats) {
+    let head = inFront[0];
+    for (const t of inFront) {
       const dist = Math.hypot(t[1] - ex, t[3] - ez);
       if (dist < best) {
         best = dist;
@@ -95,7 +107,7 @@ export function viewNotes(stadium: Stadium, ref: SeatRef): ViewNotes {
   const d = offsetAt(shell.shape, ex, ez);
   const ti = stand.tiers.findIndex((t) => t.id === section.tier);
 
-  if (ref.row === 0 && ti >= 0) {
+  if (ref.row === 0 && !section.rowOffset && ti >= 0) {
     // Front row: the front wall of its tier is what the sightline has to clear.
     const tier = stand.tiers[ti];
     const wallDist = toPitch - (d - tier.frontD);
