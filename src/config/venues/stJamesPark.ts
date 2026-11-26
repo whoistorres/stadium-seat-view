@@ -95,6 +95,14 @@ export const stJamesPark: StadiumConfig = {
   roof: lowRoof,
   shellDepth: 8,
   eyeHeight: 1.2,
+  // Black and white stripes (most fans), some plain black or white. Away fans: high in Level 7
+  // of the Leazes End at the East Stand end, from memory of where the club puts them; the
+  // three sections (about 2,600 seats) are an approximation, as are the generated numbers.
+  crowd: {
+    home: ['#111111/#f2f2f2', '#111111/#f2f2f2', '#111111/#f2f2f2', '#111111', '#f2f2f2'],
+    away: ['#d4122a'],
+    awaySections: ['201', '202', '203'],
+  },
   stands: {
     N: tall('Milburn Stand', 9),
     NE: tall('Milburn–Leazes corner', 8),

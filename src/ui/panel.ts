@@ -119,8 +119,9 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
       const g = groups.get(s.tier)!;
       const c = tickets.category(i);
       const free = tickets.available(i);
-      const note = free === 0 ? 'sold out' : tickets.sectionMatches(i, filters()) ? `${free} free` : 'outside filters';
-      g.append(option(String(i), `${s.id} · ${c.id} ${tickets.format(c.price)} · ${standLabel(s, ' ')} (${note})`));
+      const inFilters = tickets.availableIn(i, filters());
+      const note = free === 0 ? 'sold out' : inFilters ? `${inFilters} free` : 'outside filters';
+      g.append(option(String(i), `${s.id} · ${c.id} ${tickets.formatRange(tickets.sectionRange[i])} · ${standLabel(s, ' ')} (${note})`));
     });
     secSel.value = keep;
   };
@@ -150,8 +151,9 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
     stadium.sections[si].rows[ri].seats.forEach((t, ki) => {
       const ref = { section: si, row: ri, seat: ki };
       const sold = tickets.isSold(ref);
-      const ok = !sold && tickets.sectionMatches(si, f);
-      seatSel.append(option(String(ki), `Seat ${t[0]}${sold ? ' · sold' : ok ? '' : ' · filtered'}`, !ok));
+      const ok = !sold && tickets.matches(ref, f);
+      const price = tickets.format(tickets.price(ref));
+      seatSel.append(option(String(ki), `Seat ${t[0]} · ${price}${sold ? ' · sold' : ok ? '' : ' · filtered'}`, !ok));
     });
     seatSel.value = keep;
   };
@@ -201,7 +203,7 @@ export function mountPanel(root: HTMLElement, stadium: Stadium, tickets: Tickets
           .map(([label, text]) => `<div class="stat-row"><dt>${label}</dt><dd>${escapeHtml(text)}</dd></div>`)
           .join('')}
         <div class="stat-row"><dt>Category</dt><dd><span class="swatch swatch-sm pat-${c.pattern}" style="--c:${c.color}" aria-hidden="true">${c.id}</span> ${c.id} · ${escapeHtml(c.label)}</dd></div>
-        <div class="stat-row"><dt>Price</dt><dd class="price">${tickets.format(c.price)}</dd></div>
+        <div class="stat-row"><dt>Price</dt><dd class="price">${tickets.format(tickets.price(ref))}</dd></div>
         <div class="stat-row"><dt>Status</dt><dd class="${sold ? 'status-sold' : 'status-free'}">${sold ? '✕ Sold' : '✓ Available'}</dd></div>
         <div class="stat-row"><dt>Seat ID</dt><dd><code>${escapeHtml(stadium.id(ref))}</code></dd></div>
       </dl>`;

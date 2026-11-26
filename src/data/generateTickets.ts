@@ -1,5 +1,5 @@
 import { seatKey } from './seatId.ts';
-import type { CategoryId, PriceCategory, StadiumData, TicketData } from './types.ts';
+import type { CategoryId, PriceCategory, PriceRuns, Section, StadiumData, TicketData } from './types.ts';
 
 /** Okabe-Ito colours (colour-blind safe); each also has a letter and a pattern in the UI. */
 export const DEFAULT_CATEGORIES: PriceCategory[] = [
@@ -31,6 +31,34 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
+/**
+ * Mock seat prices, in steps of 5. Within a section the category price is adjusted by row
+ * (the first rows are low and cheaper, the middle of the tier is dearest, the back of the top
+ * tier is cheaper) and by position (sideline seats near halfway cost more than those near the
+ * corner flags; end seats behind the goal a little more than those towards the corners).
+ */
+function sectionPrices(s: Section, base: number, isBack: boolean, pitch: StadiumData['pitch']): PriceRuns {
+  const rows = s.rows.length;
+  return s.rows.map((row, k) => {
+    const r = rows > 1 ? k / (rows - 1) : 0.5;
+    const byRow = 1 + 0.08 * Math.sin(Math.PI * r) - 0.15 * Math.max(0, 1 - r / 0.15) - (isBack ? 0.1 * Math.max(0, (r - 0.7) / 0.3) : 0);
+    const runs: Array<[number, number]> = [];
+    for (const t of row.seats) {
+      const along =
+        s.zone === 'sideline'
+          ? 1 + 0.08 * (1 - 2 * Math.min(1, Math.abs(t[1]) / (pitch.length / 2)))
+          : s.zone === 'end'
+            ? 1 + 0.04 * (1 - 2 * Math.min(1, Math.abs(t[3]) / (pitch.width / 2)))
+            : 0.96;
+      const price = Math.max(5, Math.round((base * byRow * along) / 5) * 5);
+      const last = runs[runs.length - 1];
+      if (last && last[0] === price) last[1]++;
+      else runs.push([price, 1]);
+    }
+    return runs;
+  });
+}
+
 /** Mock ticketing: deterministic for a given stadium and seed. */
 export function generateTickets(stadium: StadiumData, seed = 2026): TicketData {
   // Pricing goes by a tier's position, not its number: front, back (if more than one) or in between.
@@ -59,7 +87,7 @@ export function generateTickets(stadium: StadiumData, seed = 2026): TicketData {
     if (s.zone === 'sideline') category = isBack ? (central ? 'B' : 'C') : central ? 'A' : 'B';
     else if (s.zone === 'corner') category = isBack ? 'D' : 'C';
     else category = isMiddle ? 'C' : 'D';
-    sections[s.id] = { category };
+    sections[s.id] = { category, prices: sectionPrices(s, DEFAULT_CATEGORIES.find((c) => c.id === category)!.price, isBack, stadium.pitch) };
 
     // Two-state Markov chain whose long-run sold share equals p.
     const p = SOLD_SHARE[category];

@@ -104,6 +104,18 @@ export interface StandConfig {
   facade?: FacadeStyle;
 }
 
+/** Shirt: one colour ('#c8102e'), or two for vertical stripes ('#111111/#f2f2f2'). */
+export type Kit = string;
+
+export interface CrowdColours {
+  /** Home shirts; list a kit more than once to make it more common. */
+  home: Kit[];
+  /** Away shirts, worn in `awaySections`. */
+  away?: Kit[];
+  /** Section labels (block names or numbers) of the away end. */
+  awaySections?: string[];
+}
+
 export interface ScoreboardConfig {
   /** Stand it sits on. */
   stand: Side;
@@ -163,6 +175,8 @@ export interface StadiumConfig {
     /** Width of the paved apron round the outer walls, metres. Default 15; 0 for none. */
     apron?: number;
   };
+  /** Team colours worn by the crowd. Omitted: a generic mix of colours. */
+  crowd?: CrowdColours;
   /** Pitchside and stand details. */
   details?: {
     /**
@@ -323,6 +337,8 @@ export interface StadiumData {
   seat: { spacing: number; inset: number; aisle: number; eyeHeight: number };
   shell: ShellSpec | null;
   sections: Section[];
+  /** Team colours for the crowd. Omitted: a generic mix. */
+  crowd?: CrowdColours;
 }
 
 /* ---------- tickets.json ---------- */
@@ -339,11 +355,24 @@ export interface PriceCategory {
   pattern: 'solid' | 'stripes' | 'dots' | 'cross';
 }
 
+/**
+ * Seat prices along each row as runs of [price, number of seats], front row first, seats left to
+ * right as seen facing the pitch. One run per row gives per-row pricing; any mix gives per-seat.
+ */
+export type PriceRuns = Array<Array<[price: number, seats: number]>>;
+
+export interface TicketSection {
+  /** Price zone: colour, label and the price used where `prices` is omitted. */
+  category: CategoryId;
+  /** Per-row or per-seat prices. Omitted: every seat costs the category price. */
+  prices?: PriceRuns;
+}
+
 export interface TicketData {
   version: 1;
   currency: string;
   categories: PriceCategory[];
-  sections: Record<string, { category: CategoryId }>;
+  sections: Record<string, TicketSection>;
   /** sectionId -> sold seat keys in "R12-N07" form. */
   sold: Record<string, string[]>;
 }

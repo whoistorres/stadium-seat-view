@@ -79,11 +79,13 @@ export class PointerInput {
     this.tooltip.show(seat ? this.seatTip(seat) : this.sectionTip(hit.section, s.mode === 'orbit'), x, y);
   }
 
-  private categoryLine(si: number): string {
+  /** Category and price: the seat's own price, or the section's price range. */
+  private categoryLine(si: number, ref?: SeatRef): string {
     const c = this.tickets.category(si);
+    const price = ref ? this.tickets.format(this.tickets.price(ref)) : this.tickets.formatRange(this.tickets.sectionRange[si]);
     return (
       `<span class="tip-cat"><span class="swatch swatch-sm pat-${c.pattern}" style="--c:${c.color}" aria-hidden="true">${c.id}</span>` +
-      `${c.id} · ${escapeHtml(c.label)} · <b>${this.tickets.format(c.price)}</b></span>`
+      `${c.id} · ${escapeHtml(c.label)} · <b>${price}</b></span>`
     );
   }
 
@@ -105,7 +107,7 @@ export class PointerInput {
   /** Why a seat can't be picked, or null if it can. */
   private blocked(ref: SeatRef): string | null {
     if (this.tickets.isSold(ref)) return 'Sold, not selectable';
-    if (!this.tickets.sectionMatches(ref.section, this.store.get().filters)) return 'Outside your price filters';
+    if (!this.tickets.matches(ref, this.store.get().filters)) return 'Outside your price filters';
     return null;
   }
 
@@ -115,7 +117,7 @@ export class PointerInput {
     const verb = this.store.get().mode === 'seat' ? 'Click to move to this seat' : 'Click to view from this seat';
     return (
       `<strong>Section ${escapeHtml(n.section)} · Row ${escapeHtml(n.row)} · Seat ${n.seat}</strong>` +
-      this.categoryLine(ref.section) +
+      this.categoryLine(ref.section, ref) +
       `<span class="${this.tickets.isSold(ref) ? 'status-sold' : 'status-free'}">${this.tickets.isSold(ref) ? '✕ Sold' : '✓ Available'}</span>` +
       `<span class="muted">${escapeHtml(reason ?? verb)}</span>`
     );

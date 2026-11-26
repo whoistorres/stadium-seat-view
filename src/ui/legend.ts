@@ -9,7 +9,8 @@ export function mountLegend(root: HTMLElement, tickets: Tickets, store: AppStore
   tickets.sectionCategory.forEach((c, si) => freeByCat.set(c.id, (freeByCat.get(c.id) ?? 0) + tickets.available(si)));
   // Largest step that still lands exactly on every price point.
   const gcd = (a: number, b: number): number => (b < 0.5 ? a : gcd(b, a % b));
-  const step = tickets.categories.reduce((g, c) => gcd(g, Math.round(c.price - tickets.minPrice)), 0) || 1;
+  const step = tickets.pricePoints.reduce((g, p) => gcd(g, Math.round(p - tickets.minPrice)), 0) || 1;
+  const range = (id: CategoryId) => tickets.categoryRange.get(id);
 
   root.innerHTML = `
     <h2 id="price-h">Prices &amp; availability</h2>
@@ -22,7 +23,7 @@ export function mountLegend(root: HTMLElement, tickets: Tickets, store: AppStore
           <input type="checkbox" data-cat="${c.id}" checked />
           <span class="swatch pat-${c.pattern}" style="--c:${c.color}" aria-hidden="true">${c.id}</span>
           <span class="legend-text">
-            <span><b>${c.id} · ${escapeHtml(c.label)}</b> <span class="price">${tickets.format(c.price)}</span></span>
+            <span><b>${c.id} · ${escapeHtml(c.label)}</b> <span class="price">${range(c.id) ? tickets.formatRange(range(c.id)!) : tickets.format(c.price)}</span></span>
             <span class="muted">${(freeByCat.get(c.id) ?? 0).toLocaleString('en')} seats free</span>
           </span>
         </label>`,
@@ -85,9 +86,7 @@ export function mountLegend(root: HTMLElement, tickets: Tickets, store: AppStore
     minOut.textContent = tickets.format(f.minPrice);
     maxOut.textContent = tickets.format(f.maxPrice);
     let free = 0;
-    tickets.sectionCategory.forEach((_, si) => {
-      if (tickets.sectionMatches(si, f)) free += tickets.available(si);
-    });
+    tickets.sectionCategory.forEach((_, si) => (free += tickets.availableIn(si, f)));
     count.textContent = free
       ? `${free.toLocaleString('en')} seats available in your filters`
       : 'No seats match these filters. Try a higher max price or more categories.';

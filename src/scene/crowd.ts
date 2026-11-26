@@ -46,8 +46,18 @@ function figure(detailed: boolean): THREE.BufferGeometry {
   return g;
 }
 
-// Generic mixed crowd: no team colours.
+// Generic mixed crowd, used when the stadium has no team colours.
 const SHIRTS = ['#c8102e', '#f2f2f2', '#1d2b53', '#111111', '#7a7f87', '#f1c40f', '#2e7d32', '#5fa8e8', '#8e1b3a', '#e67e22', '#ffffff', '#24324a'];
+/** Jackets and jumpers worn over (or instead of) the shirt. */
+const COATS = ['#1a1f2b', '#2b2f36', '#3a3f47', '#4a4440', '#20262e', '#5b6068', '#3b2f2a'];
+/** Share of a team-coloured crowd wearing the shirt; the rest wear a coat. */
+const IN_SHIRT = 0.62;
+
+/** A kit split into its main colour and, for stripes, the second colour. */
+function parseKit(kit: string): [string, string | null] {
+  const [a, b] = kit.split('/');
+  return [a, b ?? null];
+}
 
 function hash(a: number, b: number): number {
   let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35);
@@ -61,10 +71,15 @@ function crowdMaterial(): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.92 });
   // Instance colour is the shirt. Heads are not tinted by it: the face side (object-space +Z,
   // towards the pitch) gets skin, the back and top get hair, both varied per person.
+  // aKit2 (per instance): second shirt colour in rgb, a = 1 for vertical stripes across the torso.
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uSkin = { value: new THREE.Color('#c08a68') };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aHead;\nuniform vec3 uSkin;')
+      .replace(
+        '#include <common>',
+        '#include <common>\nattribute float aHead;\nattribute vec4 aKit2;\nuniform vec3 uSkin;\nvarying vec4 vKit2;\nvarying float vLocalX;\nvarying float vTorso;',
+      )
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvKit2 = aKit2;\nvLocalX = position.x;\nvTorso = 1.0 - aHead;')
       .replace(
         '#include <color_vertex>',
         `#include <color_vertex>
@@ -78,14 +93,35 @@ function crowdMaterial(): THREE.MeshStandardMaterial {
           vColor.rgb = mix(instanceColor.rgb, mix(hair, skin, face), aHead);
         #endif`,
       );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec4 vKit2;\nvarying float vLocalX;\nvarying float vTorso;')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        // Four stripes across the 0.36 m torso, front and back.
+        float stripe = step(0.5, fract((vLocalX + 0.18) / 0.09)) * vKit2.a * step(0.5, vTorso);
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuse * vKit2.rgb, stripe);`,
+      );
   };
   return m;
+}
+
+/** A figure geometry for one section: shares the base buffers, adds that section's stripes. */
+function withKits(base: THREE.BufferGeometry, kit2: THREE.InstancedBufferAttribute): THREE.BufferGeometry {
+  const g = new THREE.BufferGeometry();
+  if (base.index) g.setIndex(base.index);
+  for (const [name, attr] of Object.entries(base.attributes)) g.setAttribute(name, attr);
+  g.setAttribute('aKit2', kit2);
+  g.boundingSphere = base.boundingSphere;
+  return g;
 }
 
 /** Low-cost spectators on sold seats: one InstancedMesh per section, near/far LOD, density cut by draw count. */
 export class Crowd {
   readonly group = new THREE.Group();
   private readonly meshes: Array<THREE.InstancedMesh | null> = [];
+  /** Per section: near and far figure geometries carrying its stripes. */
+  private readonly lods: Array<{ near: THREE.BufferGeometry; far: THREE.BufferGeometry } | null> = [];
   /** Per section: seat instance index -> crowd instance index, or -1. */
   private readonly slot: Int32Array[] = [];
   private readonly centres: THREE.Vector3[];
@@ -107,6 +143,9 @@ export class Crowd {
     const s = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
     const color = new THREE.Color();
+    const second = new THREE.Color();
+    const teams = stadium.data.crowd;
+    const away = new Set(teams?.awaySections ?? []);
 
     stadium.sections.forEach((section, si) => {
       const seatCount = stadium.meta[si].seatCount;
@@ -116,12 +155,17 @@ export class Crowd {
       for (let i = 0; i < seatCount; i++) if (tickets.isSoldAt(si, i)) sold.push(i);
       if (sold.length === 0) {
         this.meshes.push(null);
+        this.lods.push(null);
         return;
       }
       // Shuffle deterministically so lowering the draw count removes a random-looking subset.
       sold.sort((a, b) => hash(si, a) - hash(si, b));
 
-      const mesh = new THREE.InstancedMesh(this.far, material, sold.length);
+      const kit2 = new THREE.InstancedBufferAttribute(new Float32Array(sold.length * 4), 4);
+      const lod = { near: withKits(this.near, kit2), far: withKits(this.far, kit2) };
+      this.lods.push(lod);
+      const kits = teams ? (away.has(section.id) && teams.away ? teams.away : teams.home) : null;
+      const mesh = new THREE.InstancedMesh(lod.far, material, sold.length);
       sold.forEach((inst, k) => {
         slots[inst] = k;
         const ref = stadium.refFromInstance(si, inst);
@@ -132,7 +176,19 @@ export class Crowd {
         p.set(t[1], t[2], t[3]);
         s.setScalar(0.92 + r * 0.16);
         mesh.setMatrixAt(k, m4.compose(p, q, s));
-        mesh.setColorAt(k, color.set(SHIRTS[Math.floor(hash(si * 7 + 3, inst) * SHIRTS.length)]));
+        const pick = hash(si * 7 + 3, inst);
+        if (!kits) {
+          mesh.setColorAt(k, color.set(SHIRTS[Math.floor(pick * SHIRTS.length)]));
+        } else if (hash(si * 13 + 5, inst) < IN_SHIRT) {
+          const [a, b] = parseKit(kits[Math.floor(pick * kits.length)]);
+          mesh.setColorAt(k, color.set(a));
+          if (b) {
+            second.set(b);
+            kit2.setXYZW(k, second.r, second.g, second.b, 1);
+          }
+        } else {
+          mesh.setColorAt(k, color.set(COATS[Math.floor(pick * COATS.length)]));
+        }
       });
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
@@ -163,7 +219,8 @@ export class Crowd {
     for (let i = 0; i < this.meshes.length; i++) {
       const mesh = this.meshes[i];
       if (!mesh) continue;
-      const want = p.distanceTo(this.centres[i]) - this.stadium.meta[i].radius < this.nearDistance ? this.near : this.far;
+      const lod = this.lods[i]!;
+      const want = p.distanceTo(this.centres[i]) - this.stadium.meta[i].radius < this.nearDistance ? lod.near : lod.far;
       if (mesh.geometry !== want) mesh.geometry = want;
     }
   }

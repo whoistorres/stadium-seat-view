@@ -2,6 +2,7 @@ import { bowlPieces, PIECE_SIDES, pieceLength, pointOnPiece, type Piece } from '
 import { standOverhangs, WALL_THICKNESS } from './overhang.ts';
 import type {
   BowlShape,
+  CrowdColours,
   DugoutSpec,
   FacadeStyle,
   RoofConfig,
@@ -472,6 +473,8 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
   if (boards.length) shell.scoreboards = boards;
   if (benches.length) shell.dugouts = benches;
 
+  const crowd = cfg.crowd ? checkCrowd(cfg.crowd, sections) : undefined;
+
   return {
     version: 2,
     name: cfg.name,
@@ -480,5 +483,28 @@ export function generateStadium(cfg: StadiumConfig): StadiumData {
     seat: { spacing: seatSpacing, inset: seatInset, aisle: aisleWidth, eyeHeight: cfg.eyeHeight },
     shell,
     sections,
+    ...(crowd ? { crowd } : {}),
   };
+}
+
+const KIT = /^#[0-9a-f]{6}(\/#[0-9a-f]{6})?$/i;
+
+/** Checks the crowd colours against the generated sections and returns a clean copy. */
+function checkCrowd(c: CrowdColours, sections: Section[]): CrowdColours {
+  const kits = (list: unknown, key: string) => {
+    if (!Array.isArray(list) || list.length === 0 || !list.every((k) => typeof k === 'string' && KIT.test(k))) {
+      throw new Error(`stadiumConfig: "crowd.${key}" must be a list of colours like '#c8102e', or '#111111/#f2f2f2' for stripes`);
+    }
+    return [...list] as string[];
+  };
+  const out: CrowdColours = { home: kits(c.home, 'home') };
+  if (c.away !== undefined) out.away = kits(c.away, 'away');
+  if (c.awaySections !== undefined) {
+    if (!out.away) throw new Error('stadiumConfig: "crowd.awaySections" needs "crowd.away" colours');
+    const ids = new Set(sections.map((s) => s.id));
+    const missing = c.awaySections.filter((id) => !ids.has(id));
+    if (missing.length) throw new Error(`stadiumConfig: "crowd.awaySections" names sections that don't exist: ${missing.join(', ')}`);
+    out.awaySections = [...c.awaySections];
+  }
+  return out;
 }

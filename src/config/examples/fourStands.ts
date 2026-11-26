@@ -15,6 +15,9 @@ import { stadiumConfig } from '../stadiumConfig.ts';
 export const fourStandsExample: StadiumConfig = {
   ...stadiumConfig,
   name: 'Four Stands (example)',
+  // Green and white hoops are beyond the shader, so: green, white, some green/white stripes.
+  // Away fans in the open East stand's back tier.
+  crowd: { home: ['#1b7a3a', '#1b7a3a', '#f2f2f2', '#1b7a3a/#f2f2f2'], away: ['#f2c200'], awaySections: ['201', '202', '203', '204'] },
   // Separate stands: each designs its rake for its own distance to the pitch.
   bowl: { ...stadiumConfig.bowl, sightlines: 'stand' },
   // A fourth tier, used only by the main stand. Tier ids just need to rise from front to back.

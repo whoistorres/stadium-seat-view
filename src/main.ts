@@ -68,7 +68,7 @@ function connectTickets(
   const colors = new TicketColors(stadium, tickets);
   const apply = (s: AppState) => {
     colors.update(s.filters);
-    colors.matches.forEach((m, si) => labels.setDimmed(si, !m || tickets.available(si) === 0));
+    colors.matches.forEach((m, si) => labels.setDimmed(si, !m || tickets.availableIn(si, s.filters) === 0));
   };
   apply(store.get());
   seats.setBaseColor(colors.colorFn);

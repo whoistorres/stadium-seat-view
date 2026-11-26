@@ -24,4 +24,6 @@ export const stadiumConfig: StadiumConfig = {
   roof: { enabled: true, clearance: 6.5, cantilever: 30, slopeDeg: 3, thickness: 0.7 },
   shellDepth: 4,
   eyeHeight: 1.2,
+  // Generic home side in red and white; away fans in the upper south-west corner.
+  crowd: { home: ['#c8102e', '#c8102e', '#f2f2f2'], away: ['#1d4ed8'], awaySections: ['337', '338'] },
 };

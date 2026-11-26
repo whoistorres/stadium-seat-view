@@ -123,17 +123,18 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 ### Ticketing layer (mock)
 - **Four price categories:**
 
-  | Category | Price | Pattern |
-  |---|---|---|
-  | A Premium | €145 | solid |
-  | B Central | €95 | stripes |
-  | C Standard | €65 | dots |
-  | D Value | €40 | crosshatch |
+  | Category | Base price | Seat prices (default stadium) | Pattern |
+  |---|---|---|---|
+  | A Premium | €145 | €125–170 | solid |
+  | B Central | €95 | €75–110 | stripes |
+  | C Standard | €65 | €50–75 | dots |
+  | D Value | €40 | €35–45 | crosshatch |
 
   Colours come from a palette designed to stay distinguishable for colour-blind viewers. Each category also has a letter and a pattern, so colour is never the only cue.
-- **3D colouring:** available seats show their category colour, sold seats are grey, and seats outside the filters fade.
+- **Per-seat prices:** the category is the price zone; each seat has its own price, stored as runs of `[price, seats]` along each row (one run per row for per-row pricing). The mock prices go by row (the first rows cheaper, the middle of a tier dearest, the back of the top tier cheaper) and by position (near halfway dearer), in €5 steps. The legend, dropdowns and tooltips show price ranges; seat card, seat dropdown and seat tooltip show the seat's own price.
+- **3D colouring:** available seats show their category colour, sold seats are grey, and seats outside the filters fade, seat by seat.
 - **Section tags:** a floating "214 C" tag on the front wall of each section, fading in as the camera gets closer.
-- **Legend and filters:** the legend doubles as the category filter. There are min/max price sliders, live counts of matching seats, a Reset button and a section-tag toggle.
+- **Legend and filters:** the legend doubles as the category filter. There are min/max price sliders in €5 steps across every seat price, live counts of matching free seats, a Reset button and a section-tag toggle.
 - **Sold or filtered seats** can't be selected by click, dropdown or arrow keys. Clicking one shows the reason, which also works on touch screens.
 - **Seat card:** shows the seat's details, a "View from this seat" button and a "Select seat" button. Select stores the seat in the app's state; there is no checkout.
 - **View notes:** the seat card says what limits the view, worked out from the model: sightline clearance over the head in front (or the front wall, for a front row) rated against the 60/90/120 mm guidance; whether the seat is under the roof or the tier above, and how high you can see before its edge; distance to the pitch and centre spot and eye height.
@@ -142,7 +143,8 @@ A specific seat can be linked directly, for example `http://localhost:5173/#S-32
 - **Day:** a gradient sky, distance fog, and sun shadows from the roof and stands onto the seats and pitch. Shadows are drawn once and redrawn only when lighting changes.
 - **Evening:** a dark sky, an overhead white light standing in for the floodlights, four corner spotlights, glowing roof fixtures, brighter ad boards and a darkened building exterior.
 - **Crowd:** 33,000+ seated figures, one on every sold seat.
-  - Shirts in mixed colours; faces from the front and hair from behind.
+  - Team colours from the config: home kits (plain or vertical stripes, drawn in the shader), an away end in the away kit, and about 4 in 10 fans in dark coats. A generic mix when the config has none. St James' Park: black-and-white stripes, away fans high in Level 7 of the Leazes End at the East Stand end (placement from memory, approximate).
+  - Faces from the front and hair from behind.
   - Slight random turn and size for each figure.
   - Two detail levels.
   - The figure on the camera's own seat is removed.
@@ -285,6 +287,7 @@ After the six phases the project went under git and onto GitHub, and work moved 
 | 2026-11-20 | Sightlines per stand; outside of the stadium | Optional per-stand rake design (used by the four-stands example; St James' Park keeps the shared design so its Milburn–Leazes wrap and photo fit hold); facade styles and a paved apron |
 | 2026-11-26 | View notes; seat numbering | Seat card explains what limits each seat's view; seats can be numbered across a whole stand, from either end, ready for the St James' Park block map |
 | 2026-11-26 | Seat view aim; stadium details | Seat view faces the nearest part of the pitch, with a centre-spot toggle; aisle stairs, tunnel mouths, scoreboards and dugouts. The dugouts' back wall was made clear above a low panel after it blocked the view from the front rows behind them |
+| 2026-11-26 | Per-seat pricing; team colours | Seat prices vary by row and position within each price zone, and every filter, count and colour works per seat; the crowd wears home and away kits, with stripes |
 
 Mid-project the files moved from a temporary workspace into `C:\Users\berni\stadium project`. The stylesheet had to be copied across by hand, and the dev server had to be started from the new folder by hand because the preview tool kept using the old one.
 
@@ -321,6 +324,7 @@ Mid-project the files moved from a temporary workspace into `C:\Users\berni\stad
 
   Level 7 is at the 35° rake cap and still can't reach 60 mm: from there, the head in front hides the near touchline. Gallowgate's shallow rake comes from the photo fit. Designing Leazes for its own 7 m gap instead would lower both its tiers by 2.3 m, breaking the seamless corner join with Milburn and the Level 7 photo fit, so St James' Park keeps the shared design.
 - **View notes** (clearance over the nearest head in front, to the nearest point of the pitch, every seat): 17,255 seats below 0 mm, 13,007 at 0–60, 9,766 at 60–90, 4,967 at 90–120 and 7,167 at 120 mm or more. The negative ones are Level 7 (−78 to −261 mm, the front row worst, over its wall) and most of the Gallowgate (31 to −83 mm). The default stadium has every seat at 60 mm or more.
+- **Per-seat prices:** with the price filter at 150 to 170 euros, the legend count (1,441 free seats) matches a seat-by-seat count, and no seat outside that window can be selected.
 - **Not checkable yet:** the size of the upper-tier overhang (no photo or plan shows it), the real block layout, and the East Stand and Milburn lower tier.
 
 ### Performance (Intel Iris Xe, 60 Hz, Chromium, visible window)
@@ -372,7 +376,7 @@ Early measurements taken while the browser pane was hidden were discarded: the b
 - With `shell: null` (a real venue's own building model), the orbit camera no longer has anything stopping it entering the building. That needs reworking for real venues.
 
 **Visuals**
-- **Crowd:** low-poly box torsos with simple heads, seated and still, no team colours.
+- **Crowd:** low-poly box torsos with simple heads, seated and still. Kits are flat colours or vertical stripes only (no hoops, sleeves or badges).
 - **Evening lights:** faked with one overhead light plus four spotlights; only the overhead light casts shadows.
 - **Shadows:** soft but coarse, about 15 cm per shadow pixel.
 - **Large windows:** the image gets softer there, because resolution is lowered to keep the frame rate.
@@ -381,7 +385,7 @@ Early measurements taken while the browser pane was hidden were discarded: the b
 - Portrait phones use a wide vertical FOV (up to 105°), which adds some edge distortion.
 
 **Ticketing**
-- One price per section, and only four prices, so the price-range filter effectively selects whole categories.
+- Mock prices follow a simple row-and-position rule, not a real club's price list.
 - Mock availability and no checkout. "Your seat" lasts only for the session.
 
 **Untested**
@@ -447,7 +451,6 @@ rather than selling a standalone viewer to top clubs.
 6. Add privacy-respecting analytics (seat previews leading to purchases) to support an A/B test.
 
 **Quality improvements**
-- Per-row or per-seat pricing.
 - Handrails, a players' tunnel, and lower-tier tunnel mouths that come up through the seats.
 - Higher-refresh-rate support in adaptive resolution (aim for the display's own rate).
 

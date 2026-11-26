@@ -5,8 +5,8 @@ An interactive 3D soccer stadium where fans can preview the view from any seat b
 - Procedural three-tier bowl: 120 sections (101–140, 201–240, 301–340), 54,448 seats, cantilevered roof
 - Rows are raked from a sightline target, so every seat sees the near touchline over the heads in front
 - Orbit overview → click a section → click a seat → animated fly-in to a first-person seat view
-- Mock ticketing: four price categories, sold seats, category and price filters, "Select seat"
-- Day / evening lighting, crowd on sold seats, Low / High quality, desktop and mobile layouts
+- Mock ticketing: four price zones with per-seat prices, sold seats, category and price filters, "Select seat"
+- Day / evening lighting, crowd on sold seats in team colours (with an away end), Low / High quality, desktop and mobile layouts
 - Stadium details: aisle stairs leading up to tunnel mouths, scoreboards, team dugouts
 
 Stack: Vite + TypeScript + Three.js. Plain DOM/CSS for the UI, no other runtime libraries, no backend.
@@ -104,6 +104,7 @@ src/
 | `exterior.facade` | Outer wall finish for every stand: `'concrete'` (default, plain grey), `'glass'` (curtain wall with floor bands and mullions, windows lit in the evening), `'panels'` (light cladding with joint lines) or `'brick'`. Drawn in flat colours for the overview |
 | `exterior.apron` | Width of the paved apron round the outer walls, metres (default 15; `0` for none) |
 | `details.scoreboards` | Big screens, each `{ stand, at?, width?, height? }`: the stand it stands on (on the front of its roof, or on its back wall without one), position along it from `0` (left end, as seen sitting in it facing the pitch) to `1` (default `0.5`), and screen size (default 14 × 6 m). Default: one in the middle of each end stand (`E`, `W`); `[]` for none |
+| `crowd` | Team colours on the crowd: `home` and `away` lists of kits, each `'#c8102e'` (one colour) or `'#111111/#f2f2f2'` (vertical stripes); list a kit more than once to make it more common. `awaySections` names the away end's sections. About 6 in 10 fans wear a shirt, the rest a dark coat. Omit for a generic mix of colours |
 | `details.dugouts` | Touchline the two team dugouts are on, either side of the halfway line: `'N'` (default), `'S'` or `null` for none. They back onto the advertising boards and are left out if there isn't room |
 | `stands` | Optional per-stand overrides, see below |
 
@@ -187,6 +188,7 @@ Rendering code never reads the config, only the generated JSON, so changing valu
     scoreboards?: [{ x, y, z, yaw, width, height }],        // big screens; y = base, yaw turns local +Z to the pitch
     dugouts?: [{ x, y, z, yaw, length, depth, height }]     // team dugouts
   } | null,
+  crowd?: { home: ["#111111/#f2f2f2", ...], away?: ["#d4122a"], awaySections?: ["201", ...] },  // team colours
   sections: [{
     id: "214",                                    // number, or the real block name, e.g. "GSQ"
     tier: 2, zone: "sideline" | "end" | "corner", side: "N" | "NE" | ...,
@@ -209,10 +211,17 @@ Version 1 files, which had a single `shell` cross-section for the whole bowl, st
   version: 1,
   currency: "EUR",
   categories: [{ id: "A", label: "Premium", price: 145, color: "#D55E00", pattern: "solid" }, ...],
-  sections: { "214": { category: "C" }, ... },
+  sections: {
+    "214": {
+      category: "C",                              // price zone: colour, label, fallback price
+      prices?: [[[60, 12], [65, 30], [60, 12]], ...]  // optional: per row, front first, runs of [price, seats]
+    }, ...
+  },
   sold: { "214": ["R12-N07", "R12-N08", ...], ... }
 }
 ```
+
+`prices` lists each row's seats left to right (as seen facing the pitch) as runs of `[price, number of seats]`. One run per row gives per-row pricing; any mix of runs gives per-seat pricing. Each row's runs must add up to its seat count. Without `prices`, every seat in the section costs its category's `price`. The mock data prices seats by row (the first rows are cheaper, the middle of a tier dearest, the back of the top tier cheaper) and by position (near halfway costs more than near the corner flags), in steps of €5.
 
 ### Seat IDs
 

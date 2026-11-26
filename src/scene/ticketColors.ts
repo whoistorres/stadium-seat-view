@@ -8,8 +8,9 @@ const FILTERED_TINT = new THREE.Color('#1b1e23');
 
 /** Seat colours from ticket data: category colour if available and matching, grey if sold, faded if filtered out. */
 export class TicketColors {
-  /** Per section: does it pass the current filters. */
+  /** Per section: does any seat in it pass the current filters. */
   readonly matches: boolean[];
+  private filters: TicketFilters | null = null;
   private readonly base: THREE.Color[];
   private readonly filtered: THREE.Color[];
 
@@ -23,12 +24,14 @@ export class TicketColors {
   }
 
   update(filters: TicketFilters): void {
+    this.filters = filters;
     for (let i = 0; i < this.matches.length; i++) this.matches[i] = this.tickets.sectionMatches(i, filters);
   }
 
   readonly colorFn: BaseColorFn = (ref, out) => {
     const sold = this.tickets.isSold(ref);
-    if (!this.matches[ref.section]) out.copy(sold ? FILTERED_TINT : this.filtered[ref.section]);
+    const ok = this.matches[ref.section] && (!this.filters || this.tickets.matches(ref, this.filters));
+    if (!ok) out.copy(sold ? FILTERED_TINT : this.filtered[ref.section]);
     else out.copy(sold ? SOLD : this.base[ref.section]);
   };
 }
